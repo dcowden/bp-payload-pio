@@ -11,6 +11,9 @@ Payload::Payload(){
     right_sensor = 0;  
     lastError=0.0;
 }
+int Payload::getNumberForwardButtonsPressed(){
+  return num_fwd_pressed ();
+}
 
 MotorCommand Payload::update(){
   fwd_btn_1 = readButton(BTN_FWD_1);
@@ -83,11 +86,15 @@ Game::Game(){}
 
 int Game::getSecondsRemaining(){
   long endTime = startTime + 1000*durationSeconds;
-  return (millis() - endTime) / 1000;  
+  return (int)(endTime - millis() ) / 1000;  
 }
 
 int Game::getDurationSeconds(){
   return durationSeconds;
+}
+
+boolean Game::isOver(){
+  return getSecondsRemaining()< 0;
 }
 
 boolean Game::start(int durationSecs){

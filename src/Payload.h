@@ -35,6 +35,7 @@ class Payload{
     int left_sensor;
     int right_sensor;
     float lastError;
+    int getNumberForwardButtonsPressed();
     MotorCommand lastCommand;    
   private:
     int readButton(int pin);
@@ -49,6 +50,7 @@ class Game{
     Game();
     int getSecondsRemaining();
     int getDurationSeconds();
+    boolean isOver();
     boolean start(int durationSecs);
   private:
     long startTime;    

@@ -1,6 +1,5 @@
 #include "Arduino.h"
 #include <FastLED.h>
-
 #include "LedMeter.h"
 #include "SSD1306Ascii.h"
 #include "SSD1306AsciiWire.h"
@@ -13,7 +12,7 @@
 #include <menuIO/chainStream.h>
 #include <menuIO/encoderIn.h>
 #include <menuIO/keyIn.h>
-
+#include <WiFi.h>
 
 #define menuFont System5x7
 #define fontW 5
@@ -29,7 +28,8 @@
 //app constants
 #define NUM_LEDS 13
 #define I2C_ADDRESS 0x3C
-#define GAME_DURATION_SECS 600
+#define GAME_DURATION_SECS 30
+#define GAME_OVER_DANCE_SECS 10
 #define DEBUG 1
 
 #define MAX_DEPTH 2
@@ -45,22 +45,17 @@ Payload payload;
 
 
 int gameDuration = GAME_DURATION_SECS;
-int exitMenuOptions = 0; //Forces the menu to exit and cut the copper tape
+int exitMenuOptions = 0; 
 
 Menu::encoderIn<ROTARY_ENCODER_A_PIN,ROTARY_ENCODER_B_PIN> encoder;//simple quad encoder driver
 Menu::encoderInStream<ROTARY_ENCODER_A_PIN,ROTARY_ENCODER_B_PIN> encStream(encoder,4);// simple quad encoder fake Stream
 Menu::serialIn serial(Serial);
 
 //a keyboard with only one key as the encoder button
-keyMap encBtn_map[]={{-ROTARY_ENCODER_BUTTON_PIN,options->getCmdChar(enterCmd)}};//negative pin numbers use internal pull-up, on = low
-keyIn<1> encButton(encBtn_map);//1 is the number of keys
+Menu::keyMap encBtn_map[]={{-ROTARY_ENCODER_BUTTON_PIN,options->getCmdChar(enterCmd)}};//negative pin numbers use internal pull-up, on = low
+Menu::keyIn<1> encButton(encBtn_map);//1 is the number of keys
 
 MENU_INPUTS(in,&encStream,&encButton,&serial);
-
-// ESP32 timer thanks to: http://www.iotsharing.com/2017/06/how-to-use-interrupt-timer-in-arduino-esp32.html
-// and: https://techtutorialsx.com/2017/10/07/esp32-arduino-timer-interrupts/
-//hw_timer_t* timer = NULL;
-//portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
 
 enum AppModeValues
 {
@@ -68,7 +63,9 @@ enum AppModeValues
   APP_MENU_MODE,
   APP_PROCESS_MENU_CMD
 };
+byte appMode = APP_MENU_MODE;
 
+/*
 int ledCtrl = LOW;
 
 Menu::result myLedOn() {
@@ -94,6 +91,7 @@ MENU(mainMenu, "Main menu", doNothing, noEvent, wrapStyle
 
 #define MAX_DEPTH 2
 
+
 //define output device
 Menu::idx_t serialTops[MAX_DEPTH] = {0};
 Menu::serialOut outSerial(Serial, serialTops);
@@ -109,11 +107,6 @@ SSD1306AsciiOut outOLED(&oled, tops, pList, 8, 1+((fontH-1)>>3) ); //oled output
 Menu::menuOut* constMEM outputs[] MEMMODE = {&outOLED, &outSerial}; //list of output devices
 Menu::outputsList out(outputs, sizeof(outputs) / sizeof(Menu::menuOut*)); //outputs list
 
-//MENU_OUTPUTS(menuOut,MAX_DEPTH
-//  ,LCD_OUT(outOLED,{0,0,128,64})
-//  ,NONE
-//);
-
 //macro to create navigation control root object (nav) using mainMenu
 
 NAVROOT(nav, mainMenu, MAX_DEPTH, serial, out);
@@ -122,11 +115,10 @@ NAVROOT(nav, mainMenu, MAX_DEPTH, serial, out);
 //nav.showTitle = true; // SHow titles in the menus and submenus
 //  nav.timeOut = 60;  // Timeout after 60 seconds of inactivity and return to the sensor read screen
 //  nav.idleOn(); // Start with the main screen and not the menu
-
+*/
 
 void setupLEDs(){
   FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, NUM_LEDS);
-  payloadMeter.setMaxValue(NUM_LEDS);  
 }
 
 void setupOLED(){
@@ -145,17 +137,18 @@ void handleCommand(MotorCommand mc){
     Wire.endTransmission ();  
 }
 
+void startGame() {
+    game.start(GAME_DURATION_SECS);
+    payloadMeter.setMaxValue(GAME_DURATION_SECS);
+    payloadMeter.setToMax();
+}
+
 void setup() {
   Serial.begin(115200);
   Wire.begin();
   setupLEDs();
   setupOLED();
-}
-
-void startGame() {
-    game.start(GAME_DURATION_SECS);
-    payloadMeter.setMaxValue(GAME_DURATION_SECS);
-    payloadMeter.setToMax();
+  startGame();
 }
 
 void updateLEDs(){
@@ -164,16 +157,18 @@ void updateLEDs(){
   FastLED.show();
 }
 
+
 void gameOverDisplay(){
-  for (int i=0;i<20;i++){
+  long end_time = millis() + (GAME_OVER_DANCE_SECS*1000);
+  while ( millis() < end_time ){
     payloadMeter.setToMax();
     FastLED.show();
-    FastLED.delay(100);
+    FastLED.delay(200);    
     payloadMeter.setToMin();
     FastLED.show();
-    FastLED.delay(100);    
+    FastLED.delay(200);    
   }
-  FastLED.delay(5000);
+  
 }
 
 void updateDisplay(){  
@@ -183,7 +178,6 @@ void updateDisplay(){
   oled.print(game.getSecondsRemaining());
   oled.print(" s");
   oled.clearToEOL();
-  
   oled.setCursor(0,2);
   oled.print("BTNS:");
   oled.print(SPACE);
@@ -237,27 +231,39 @@ void updateSerial(){
 }
 
 void loop() {
-  payload.update();
-  handleCommand(payload.lastCommand);
-  
-  #if DEBUG
-  updateSerial();
-  #endif
-  
-  updateDisplay();
-  updateLEDs();
 
-  if ( game.getSecondsRemaining() < 0){
-    gameOverDisplay();
+  if ( appMode == APP_GAME_RUNNING){
+    payload.update();
+    handleCommand(payload.lastCommand);
+
+    #if DEBUG
+    updateSerial();
+    #endif
+    
+    updateDisplay();
+    updateLEDs();
+
+    if ( game.isOver() ){
+      gameOverDisplay();
+      appMode = APP_MENU_MODE;
+    }
   }
-  switch (exitMenuOptions) {
-    case 1: {
-        delay(500); // Pause to allow the button to come up
-        //runCuts(); 
-        break;
-      }
-    default: // Do the normal program functions with ArduinoMenu
-      nav.poll(); // Poll the input devices
+  else if ( appMode == APP_MENU_MODE){
+    if ( payload.getNumberForwardButtonsPressed() > 0 ){
+      game.start(GAME_DURATION_SECS);
+      appMode = APP_GAME_RUNNING;
+    }
+    /*
+    switch (exitMenuOptions) {
+      case 1: {
+          delay(500); // Pause to allow the button to come up
+          //runCuts(); 
+          break;
+        }
+      default: // Do the normal program functions with ArduinoMenu
+        nav.poll(); // Poll the input devices
+    }
+    */
   }
   FastLED.delay(100);  
 }
