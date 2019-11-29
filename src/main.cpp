@@ -6,17 +6,18 @@
 #include "MotorCommands.h"
 #include "I2CAnything.h"
 #include "Payload.h"
+
+/* Menu includes
 #include <menu.h>
 #include <menuIO/SSD1306AsciiOut.h>
 #include <menuIO/serialIO.h>
 #include <menuIO/chainStream.h>
 #include <menuIO/encoderIn.h>
 #include <menuIO/keyIn.h>
-#include <WiFi.h>
-
 #define menuFont System5x7
 #define fontW 5
 #define fontH 8
+*/
 
 //pin definitions
 #define ROTARY_ENCODER_A_PIN 14
@@ -30,6 +31,7 @@
 #define I2C_ADDRESS 0x3C
 #define GAME_DURATION_SECS 30
 #define GAME_OVER_DANCE_SECS 10
+#define GAME_OVER_DANCE_DELAY_MS 200
 #define DEBUG 1
 
 #define MAX_DEPTH 2
@@ -43,9 +45,19 @@ LedRange payloadRange [1] = {  { 0, 12 } } ;
 LedMeter payloadMeter = LedMeter(leds,payloadRange,1,CRGB::Blue, CRGB::Black);
 Payload payload;
 
+enum AppModeValues
+{
+  APP_GAME_RUNNING,
+  APP_MENU_MODE,
+  APP_PROCESS_MENU_CMD
+};
+byte appMode = APP_MENU_MODE;
 
-int gameDuration = GAME_DURATION_SECS;
+
+/*  MENU STUFF
+
 int exitMenuOptions = 0; 
+
 
 Menu::encoderIn<ROTARY_ENCODER_A_PIN,ROTARY_ENCODER_B_PIN> encoder;//simple quad encoder driver
 Menu::encoderInStream<ROTARY_ENCODER_A_PIN,ROTARY_ENCODER_B_PIN> encStream(encoder,4);// simple quad encoder fake Stream
@@ -57,15 +69,6 @@ Menu::keyIn<1> encButton(encBtn_map);//1 is the number of keys
 
 MENU_INPUTS(in,&encStream,&encButton,&serial);
 
-enum AppModeValues
-{
-  APP_GAME_RUNNING,
-  APP_MENU_MODE,
-  APP_PROCESS_MENU_CMD
-};
-byte appMode = APP_MENU_MODE;
-
-/*
 int ledCtrl = LOW;
 
 Menu::result myLedOn() {
@@ -157,16 +160,15 @@ void updateLEDs(){
   FastLED.show();
 }
 
-
 void gameOverDisplay(){
   long end_time = millis() + (GAME_OVER_DANCE_SECS*1000);
   while ( millis() < end_time ){
     payloadMeter.setToMax();
     FastLED.show();
-    FastLED.delay(200);    
+    FastLED.delay(GAME_OVER_DANCE_DELAY_MS);    
     payloadMeter.setToMin();
     FastLED.show();
-    FastLED.delay(200);    
+    FastLED.delay(GAME_OVER_DANCE_DELAY_MS);    
   }
   
 }
@@ -174,21 +176,11 @@ void gameOverDisplay(){
 void updateDisplay(){  
   char SPACE = ' ';
   oled.setCursor(0,1);
-  oled.print("Time Rem: ");
-  oled.print(game.getSecondsRemaining());
-  oled.print(" s");
-  oled.clearToEOL();
+  oled.print("Time Rem: "); oled.print(game.getSecondsRemaining());  oled.print(" s"); oled.clearToEOL();
   oled.setCursor(0,2);
-  oled.print("BTNS:");
-  oled.print(SPACE);
-  oled.print(payload.fwd_btn_1);
-  oled.print(SPACE);
-  oled.print(payload.fwd_btn_2);
-  oled.print(SPACE);
-  oled.print(payload.fwd_btn_3);
-  oled.print(SPACE);
-  oled.print(payload.bwd_btn_1);
-  oled.clearToEOL();
+  oled.print("BTNS:");  oled.print(SPACE); oled.print(payload.fwd_btn_1);
+  oled.print(SPACE); oled.print(payload.fwd_btn_2); oled.print(SPACE); oled.print(payload.fwd_btn_3);
+  oled.print(SPACE); oled.print(payload.bwd_btn_1); oled.clearToEOL();
   oled.setCursor(0,3);
   oled.print("SENS: L:");
   oled.print(payload.left_sensor);
@@ -264,6 +256,7 @@ void loop() {
         nav.poll(); // Poll the input devices
     }
     */
+    FastLED.delay(100);  
   }
-  FastLED.delay(100);  
+  
 }
