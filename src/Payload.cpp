@@ -94,7 +94,7 @@ int Game::getDurationSeconds(){
 }
 
 boolean Game::isOver(){
-  return getSecondsRemaining()< 0;
+  return getSecondsRemaining()<= 0;
 }
 
 boolean Game::start(int durationSecs){
