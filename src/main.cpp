@@ -123,6 +123,7 @@ void setupEncoder(){
   encButton.attachDoubleClick(encButton_DoubleClick);
   encButton.attachClick(encButton_SingleClick);
   encButton.setDebounceTicks(80);
+  encoder.attachSingleEdge(ROTARY_ENCODER_A_PIN,ROTARY_ENCODER_B_PIN);
 }
 
 void setup() {
@@ -134,10 +135,6 @@ void setup() {
   setupLEDs();
   setupOLED();
   setupEncoder();
-  Serial.println("Menu 4.x");
-  Serial.println("Use keys + - * /");
-  Serial.println("to control the menu navigation");
-  encoder.attachSingleEdge(ROTARY_ENCODER_A_PIN,ROTARY_ENCODER_B_PIN);
 }
 
 void updateLEDs(){
