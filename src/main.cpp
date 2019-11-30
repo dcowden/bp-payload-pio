@@ -253,15 +253,13 @@ void loop() {
 
   if ( appMode == APP_GAME_RUNNING){
     payload.update();
-
-    #if DEBUG
-    updateSerial();
-    #endif
     displayTimer.update();
-    serialTimer.update();
     motorCommandTimer.update();
 
-    //updateDisplay();
+    #if DEBUG
+    serialTimer.update();
+    #endif
+
     updateLEDs();
 
     if ( game.isOver() ){
