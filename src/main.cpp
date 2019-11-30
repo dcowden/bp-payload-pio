@@ -12,6 +12,7 @@
 #include <menuIO/chainStream.h>
 #include <menuIO/serialIn.h>
 #include "OneButton.h"
+#include "EncoderMenuDriver.h"
 
 #define MAX_DEPTH 1
 /* Menu includes
@@ -61,54 +62,12 @@ enum AppModeValues
   APP_PROCESS_MENU_CMD
 };
 int appMode = APP_MENU_MODE;
-enum ENCODER_ACTION{
-  ENC_NO_CHANGE,ENC_UP,ENC_DOWN,ENC_SEL,ENC_BACK
-};
 
 /*  MENU STUFF
-
-int exitMenuOptions = 0; 
-
-
-Menu::encoderIn<ROTARY_ENCODER_A_PIN,ROTARY_ENCODER_B_PIN> encoder;//simple quad encoder driver
-Menu::encoderInStream<ROTARY_ENCODER_A_PIN,ROTARY_ENCODER_B_PIN> encStream(encoder,4);// simple quad encoder fake Stream
-Menu::serialIn serial(Serial);
-
-//a keyboard with only one key as the encoder button
-Menu::keyMap encBtn_map[]={{-ROTARY_ENCODER_BUTTON_PIN,options->getCmdChar(enterCmd)}};//negative pin numbers use internal pull-up, on = low
-Menu::keyIn<1> encButton(encBtn_map);//1 is the number of keys
-
-MENU_INPUTS(in,&encStream,&encButton,&serial);
-
-int ledCtrl = LOW;
-
-Menu::result myLedOn() {
-  ledCtrl = HIGH;
-  return Menu::proceed;
-}
-Menu::result myLedOff() {
-  ledCtrl = LOW;
-  return Menu::proceed;
-}
-
-TOGGLE(ledCtrl, setLed, "Led: ", doNothing, noEvent, noStyle //,doExit,enterEvent,noStyle
-       , VALUE("On", HIGH, doNothing, noEvent)
-       , VALUE("Off", LOW, doNothing, noEvent)
-      );
-
-MENU(mainMenu, "Main menu", doNothing, noEvent, wrapStyle
-     , FIELD(gameDuration, "GameTime", "%", 0, 1000, 10, 1, doNothing, noEvent, wrapStyle)
-     , OP("LED On", myLedOn, enterEvent)
-     , OP("LED Off", myLedOff, enterEvent)
-     , EXIT("<Back")
-    );
-
-#define MAX_DEPTH 2
-
+//NO input
+Menu::chainStream<0> in(NULL);
 
 //define output device
-Menu::idx_t serialTops[MAX_DEPTH] = {0};
-Menu::serialOut outSerial(Serial, serialTops);
 
 //describing a menu output device without macros
 //define at least one panel for menu output
@@ -121,23 +80,12 @@ SSD1306AsciiOut outOLED(&oled, tops, pList, 8, 1+((fontH-1)>>3) ); //oled output
 Menu::menuOut* constMEM outputs[] MEMMODE = {&outOLED, &outSerial}; //list of output devices
 Menu::outputsList out(outputs, sizeof(outputs) / sizeof(Menu::menuOut*)); //outputs list
 
-//macro to create navigation control root object (nav) using mainMenu
-
-NAVROOT(nav, mainMenu, MAX_DEPTH, serial, out);
-
-
 //nav.showTitle = true; // SHow titles in the menus and submenus
 //  nav.timeOut = 60;  // Timeout after 60 seconds of inactivity and return to the sensor read screen
 //  nav.idleOn(); // Start with the main screen and not the menu
 */
-int currentEncoderCount = encoder.getCount();
-int encoderButtonState = 0;
-void encButton_SingleClick(){
-  encoderButtonState = ENC_SEL;
-}
-void encButton_DoubleClick(){
-  encoderButtonState = ENC_BACK;
-}
+//int currentEncoderCount = encoder.getCount();
+//int encoderButtonState = 0;
 void setupLEDs(){
   FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, NUM_LEDS);
 }
@@ -168,9 +116,12 @@ void startGame() {
     appMode = APP_GAME_RUNNING;
 }
 
+void encButton_SingleClick();
+void encButton_DoubleClick();
+
 void setupEncoder(){
-  encButton.attachClick(encButton_SingleClick); 
   encButton.attachDoubleClick(encButton_DoubleClick);
+  encButton.attachClick(encButton_SingleClick);
   encButton.setDebounceTicks(80);
 }
 
@@ -207,7 +158,7 @@ void gameOverDisplay(){
 }
 
 void updateDisplay(){  
-  /*
+  
   char SPACE = ' ';
   oled.setCursor(0,1);
   oled.print("Time Rem: "); oled.print(game.getSecondsRemaining());  oled.print(" s"); oled.clearToEOL();
@@ -227,7 +178,7 @@ void updateDisplay(){
   oled.print(payload.lastCommand.leftVelocity);
   oled.print(" R: ");
   oled.print(payload.lastCommand.rightVelocity);
-  oled.clearToEOL(); */
+  oled.clearToEOL(); 
 }
 int lastDisplayUpdate = 0;
 void updateSerial(){
@@ -283,29 +234,12 @@ MENU_OUTPUTS(out,MAX_DEPTH
 NAVROOT(nav,mainMenu,MAX_DEPTH,in,out);
 
 
-
-
-
-int checkEncoder(){
-  int newCount = encoder.getCount();
-  //Serial.print("EV="); Serial.print(newCount);
-  int r = ENC_NO_CHANGE;
-  if ( newCount > currentEncoderCount){
-    r = ENC_UP;
-  }
-  else if ( newCount < currentEncoderCount){
-    r = ENC_DOWN;
-  }
-  else if (encoderButtonState == ENC_SEL ){
-    r = ENC_SEL;
-  } 
-  else if (encoderButtonState == ENC_BACK ){
-    r = ENC_BACK;
-
-  }
-  encoderButtonState = 0;
-  currentEncoderCount = newCount;
-  return r;
+EncoderMenuDriver encoderDriver ( &nav, &encoder, &encButton);
+void encButton_SingleClick(){
+  encoderDriver.button_clicked();
+}
+void encButton_DoubleClick(){
+  encoderDriver.button_dbl_clicked();
 }
 
 void loop() {
@@ -327,42 +261,9 @@ void loop() {
       nav.refresh();         
     }
   }
-  else if ( appMode == APP_MENU_MODE){
-      
-      nav.poll();
-      encButton.tick();
-      int ev = checkEncoder();
-      switch (ev) {
-        case ENC_NO_CHANGE:
-              break;
-        case ENC_UP:
-              nav.doNav(Menu::upCmd);
-              break;
-        case ENC_DOWN:
-              nav.doNav(Menu::downCmd);
-              break;
-        case ENC_SEL:
-              nav.doNav(Menu::enterCmd);
-              break;
-        case ENC_BACK:
-              nav.doNav(Menu::escCmd);
-              break;              
-        nav.doOutput();
-    }
-
-    
-    /*
-    switch (exitMenuOptions) {
-      case 1: {
-          delay(500); // Pause to allow the button to come up
-          //runCuts(); 
-          break;
-        }
-      default: // Do the normal program functions with ArduinoMenu
-        nav.poll(); // Poll the input devices
-    }
-    */
-    FastLED.delay(100);  
+  else if ( appMode == APP_MENU_MODE){      
+    encoderDriver.update();
+    FastLED.delay(100);    
   }
   
 }
