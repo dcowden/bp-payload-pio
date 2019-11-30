@@ -21,6 +21,7 @@
 #define MAX_SENSOR 775
 #define SENSOR_CLOSE 150
 #define SLOW_SPEED 100
+#define DEFAULT_GAME_TIME_SEC 60
 
 #define P_GAIN 1.0
 #define D_GAIN 0.1
@@ -54,12 +55,11 @@ class Game{
   public:
     Game();
     int getSecondsRemaining();
-    int getDurationSeconds();
+    int durationSeconds;
     boolean isOver();
-    boolean start(int durationSecs);
+    boolean start();
   private:
     long startTime;    
-    long durationSeconds;
 };
 
 #endif

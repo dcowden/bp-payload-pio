@@ -36,11 +36,11 @@
 #define NUM_LEDS 13
 #define I2C_ADDRESS 0x3C
 #define GAME_DURATION_SECS 30
-#define GAME_OVER_DANCE_SECS 3
+#define GAME_OVER_DANCE_SECS 5
 #define GAME_OVER_DANCE_DELAY_MS 100
+#define DISPLAY_UPDATE_INTERVAL_MS 1000
+#define MOTOR_UPDATE_INTERVAL_MS 10
 #define DEBUG 1
-
-int gameDuration = GAME_DURATION_SECS;
 
 Game game;
 
@@ -60,9 +60,9 @@ void sendMotorCommand();
 void encButton_SingleClick();
 void encButton_DoubleClick();
 
-Ticker displayTimer(updateDisplay,500);
-Ticker serialTimer(updateSerial,500);
-Ticker motorCommandTimer(sendMotorCommand,10);
+Ticker displayTimer(updateDisplay,DISPLAY_UPDATE_INTERVAL_MS);
+Ticker serialTimer(updateSerial,DISPLAY_UPDATE_INTERVAL_MS);
+Ticker motorCommandTimer(sendMotorCommand,MOTOR_UPDATE_INTERVAL_MS);
 
 enum AppModeValues
 {
@@ -109,23 +109,15 @@ void setupOLED(){
   oled.println("Starting..."); 
 }
 
-void handleCommand(MotorCommand mc){
-    Wire.beginTransmission (MOTOR_CONTROLLER_ADDRESS );
-    I2C_writeAnything (mc);
-    Wire.endTransmission ();  
-}
-
 void startGame() {
     Serial.print("Game Starting: ");
-    Serial.print(gameDuration);
+    Serial.print(game.durationSeconds);
     Serial.println( " secs.");
-    game.start(gameDuration);
-    payloadMeter.setMaxValue(gameDuration);
+    game.start();
+    payloadMeter.setMaxValue(game.durationSeconds);
     payloadMeter.setToMax();
     appMode = APP_GAME_RUNNING;
 }
-
-
 
 void setupEncoder(){
   encButton.attachDoubleClick(encButton_DoubleClick);
@@ -150,7 +142,6 @@ void setup() {
 
 void updateLEDs(){
   payloadMeter.setValue ( game.getSecondsRemaining() );
-  payloadMeter.update();
   FastLED.show();
 }
 
@@ -225,11 +216,11 @@ Menu::result doStartGame() {
 
 
 MENU(mainMenu, "BattlePoint Payload v0.1", Menu::doNothing, Menu::noEvent, Menu::wrapStyle
-  ,FIELD(gameDuration,"GameTime","",0,1000,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+  ,FIELD(game.durationSeconds,"GameTime","",0,1000,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
   ,FIELD(payload.bwd_speed,"BwdSpeed","",-200,0,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
   ,FIELD(payload.normal_speed,"FwdSpeed1X","",20,200,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
   ,FIELD(payload.medium_speed,"FwdSpeed2X","",60,220,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
-  ,FIELD(payload.max_speed,"FwdSpeed3X","s",80,255,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+  ,FIELD(payload.max_speed,"FwdSpeed3X","",80,255,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
   ,OP("StartGame",doStartGame,Menu::enterEvent)
   ,EXIT("<Back")
 );
