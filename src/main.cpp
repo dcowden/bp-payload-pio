@@ -6,28 +6,24 @@
 #include "MotorCommands.h"
 #include "I2CAnything.h"
 #include "Payload.h"
-#include <menu.h>
+
+#include "OneButton.h"
 #include <ESP32Encoder.h>
+#include "EncoderMenuDriver.h"
+#include "Ticker.h"
+
+#define MAX_DEPTH 1
+//Menu Includes
+#include <menuIO/keyIn.h>
+#define menuFont System5x7
+#include <menu.h>
+#include <menuIO/SSD1306AsciiOut.h>
 #include <menuIO/serialOut.h>
 #include <menuIO/chainStream.h>
 #include <menuIO/serialIn.h>
-#include "OneButton.h"
-#include "EncoderMenuDriver.h"
 
-#define MAX_DEPTH 1
-/* Menu includes
-#include <menu.h>
-#include <menuIO/SSD1306AsciiOut.h>
-#include <menuIO/serialIO.h>
-#include <menuIO/chainStream.h>
-
-#include <menuIO/keyIn.h>
-#define menuFont System5x7
 #define fontW 5
 #define fontH 8
-*/
-
-
 
 //pin definitions
 #define ROTARY_ENCODER_A_PIN 14
@@ -55,6 +51,19 @@ LedRange payloadRange [1] = {  { 0, 12 } } ;
 LedMeter payloadMeter = LedMeter(leds,payloadRange,1,CRGB::Blue, CRGB::Black);
 Payload payload;
 OneButton encButton(ROTARY_ENCODER_BUTTON_PIN, true);
+
+//function prototypes
+void updateDisplay();
+void updateLEDs();
+void updateSerial();
+void sendMotorCommand();
+void encButton_SingleClick();
+void encButton_DoubleClick();
+
+Ticker displayTimer(updateDisplay,500);
+Ticker serialTimer(updateSerial,500);
+Ticker motorCommandTimer(sendMotorCommand,10);
+
 enum AppModeValues
 {
   APP_GAME_RUNNING,
@@ -116,8 +125,7 @@ void startGame() {
     appMode = APP_GAME_RUNNING;
 }
 
-void encButton_SingleClick();
-void encButton_DoubleClick();
+
 
 void setupEncoder(){
   encButton.attachDoubleClick(encButton_DoubleClick);
@@ -126,6 +134,9 @@ void setupEncoder(){
 }
 
 void setup() {
+  displayTimer.start();
+  serialTimer.start();
+  motorCommandTimer.start();
   Serial.begin(115200);
   Wire.begin();
   setupLEDs();
@@ -158,7 +169,6 @@ void gameOverDisplay(){
 }
 
 void updateDisplay(){  
-  
   char SPACE = ' ';
   oled.setCursor(0,1);
   oled.print("Time Rem: "); oled.print(game.getSecondsRemaining());  oled.print(" s"); oled.clearToEOL();
@@ -180,9 +190,8 @@ void updateDisplay(){
   oled.print(payload.lastCommand.rightVelocity);
   oled.clearToEOL(); 
 }
-int lastDisplayUpdate = 0;
+
 void updateSerial(){
-  if ( (millis() - lastDisplayUpdate ) > 200 ){
    char SPACE = ' ';
    Serial.print("B:");
    Serial.print(SPACE);
@@ -206,8 +215,6 @@ void updateSerial(){
    Serial.print("RM:");
    Serial.print(payload.lastCommand.rightVelocity);
    Serial.println(SPACE);     
-   lastDisplayUpdate = millis();
-  }
 }
 
 Menu::result doStartGame() {
@@ -217,9 +224,13 @@ Menu::result doStartGame() {
 }
 
 
-MENU(mainMenu, "BattlePoint menu", Menu::doNothing, Menu::noEvent, Menu::wrapStyle
-  ,FIELD(gameDuration,"GameTime","s",0,1000,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
-  ,OP("Start",doStartGame,Menu::enterEvent)
+MENU(mainMenu, "BattlePoint Payload v0.1", Menu::doNothing, Menu::noEvent, Menu::wrapStyle
+  ,FIELD(gameDuration,"GameTime","",0,1000,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+  ,FIELD(payload.bwd_speed,"BwdSpeed","",-200,0,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+  ,FIELD(payload.normal_speed,"FwdSpeed1X","",20,200,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+  ,FIELD(payload.medium_speed,"FwdSpeed2X","",60,220,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+  ,FIELD(payload.max_speed,"FwdSpeed3X","s",80,255,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+  ,OP("StartGame",doStartGame,Menu::enterEvent)
   ,EXIT("<Back")
 );
 
@@ -242,17 +253,24 @@ void encButton_DoubleClick(){
   encoderDriver.button_dbl_clicked();
 }
 
+void sendMotorCommand(){
+    Wire.beginTransmission (MOTOR_CONTROLLER_ADDRESS );
+    I2C_writeAnything (payload.lastCommand);
+    Wire.endTransmission (); 
+}
 void loop() {
 
   if ( appMode == APP_GAME_RUNNING){
     payload.update();
-    handleCommand(payload.lastCommand);
 
     #if DEBUG
     updateSerial();
     #endif
-    
-    updateDisplay();
+    displayTimer.update();
+    serialTimer.update();
+    motorCommandTimer.update();
+
+    //updateDisplay();
     updateLEDs();
 
     if ( game.isOver() ){

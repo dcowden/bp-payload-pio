@@ -13,6 +13,7 @@
 //app contants
 #define FWD_SPEED_BASE_1X 100
 #define FWD_SPEED_BASE_2X 200
+#define FWD_SPEED_BASE_3X 255
 #define BWD_SPEED_BASE -100
 #define NUM_ADC_SAMPLES 10
 #define MAX_SPEED 255
@@ -28,6 +29,10 @@ class Payload{
   public:
     Payload();
     MotorCommand update();    
+    int normal_speed;
+    int medium_speed;
+    int max_speed;
+    int bwd_speed;
     int fwd_btn_1;
     int fwd_btn_2;
     int fwd_btn_3;

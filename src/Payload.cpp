@@ -3,6 +3,10 @@
 #include "MotorCommands.h"
 
 Payload::Payload(){
+    normal_speed = FWD_SPEED_BASE_1X;
+    medium_speed = FWD_SPEED_BASE_2X;
+    max_speed = FWD_SPEED_BASE_3X;
+    bwd_speed = BWD_SPEED_BASE;
     fwd_btn_1=0;
     fwd_btn_2=0;
     fwd_btn_3=0;
@@ -51,16 +55,16 @@ int Payload::readButton(int buttonPin){
 int Payload::computeNominalSpeed(){
   int num_fwd = num_fwd_pressed();
   if ( num_fwd == 3 ){
-    return MAX_SPEED ;
+    return max_speed ;
   }  
   else if ( num_fwd == 2 ){
-    return FWD_SPEED_BASE_2X;
+    return medium_speed;
   }
   else if ( num_fwd == 1 ){
-    return FWD_SPEED_BASE_1X;
+    return normal_speed;
   }
   else if ( num_fwd == -1 ){
-    return BWD_SPEED_BASE;
+    return bwd_speed;
   }
   else{
     return 0;
