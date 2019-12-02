@@ -12,22 +12,18 @@
 #include "EncoderMenuDriver.h"
 #include "Ticker.h"
 
-#define MAX_DEPTH 2
+#define MAX_DEPTH 1
 //Menu Includes
 #include <menuIO/keyIn.h>
+#define menuFont System5x7
 #include <menu.h>
 #include <menuIO/SSD1306AsciiOut.h>
 #include <menuIO/serialOut.h>
 #include <menuIO/chainStream.h>
 #include <menuIO/serialIn.h>
 
-//#define menuFont System5x7
-//#define fontW 5
-//#define fontH 7
-
-#define menuFont X11fixed7x14
-#define fontW 7
-#define fontH 14
+#define fontW 5
+#define fontH 8
 
 //pin definitions
 #define ROTARY_ENCODER_A_PIN 14
@@ -77,6 +73,8 @@ enum AppModeValues
 int appMode = APP_MENU_MODE;
 
 
+//int currentEncoderCount = encoder.getCount();
+//int encoderButtonState = 0;
 void setupLEDs(){
   FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, NUM_LEDS);
 }
@@ -84,8 +82,8 @@ void setupLEDs(){
 void setupOLED(){
   Wire.setClock(400000L);  
   oled.begin(&Adafruit128x64, I2C_ADDRESS);
-  oled.setFont(menuFont);
   oled.displayRemap(false);
+  oled.setFont(Adafruit5x7);
   oled.clear();
   oled.println("BattlePoint v1.0"); 
   oled.println("Starting..."); 
@@ -192,41 +190,54 @@ Menu::result doStartGame() {
   startGame();
   return proceed;
 }
-MENU(speedSubMenu, "Speed Settings", Menu::doNothing, Menu::noEvent, Menu::wrapStyle
-    ,FIELD(payload.bwd_speed,"BwdSpeed","",-200,0,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
-    ,FIELD(payload.normal_speed,"FwdSpeed1X","",20,200,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
-    ,FIELD(payload.medium_speed,"FwdSpeed2X","",60,220,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
-    ,FIELD(payload.max_speed,"FwdSpeed3X","",80,255,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
-    , EXIT("<Back")
-);
 
 
-MENU(mainMenu, "BP Payload v0.1", Menu::doNothing, Menu::noEvent, Menu::wrapStyle
-  ,FIELD(game.durationSeconds,"Game Time","",0,1000,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
-  ,SUBMENU(speedSubMenu)
-  ,OP("Start Game!",doStartGame,Menu::enterEvent)
+MENU(mainMenu, "BattlePoint Payload v0.1", Menu::doNothing, Menu::noEvent, Menu::wrapStyle
+  ,FIELD(game.durationSeconds,"GameTime","",0,1000,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+  ,FIELD(payload.bwd_speed,"BwdSpeed","",-200,0,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+  ,FIELD(payload.normal_speed,"FwdSpeed1X","",20,200,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+  ,FIELD(payload.medium_speed,"FwdSpeed2X","",60,220,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+  ,FIELD(payload.max_speed,"FwdSpeed3X","",80,255,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+  ,OP("StartGame",doStartGame,Menu::enterEvent)
   ,EXIT("<Back")
 );
 
 Menu::serialIn serial(Serial);
+MENU_INPUTS(in,&serial);
+
+MENU_OUTPUTS(out,MAX_DEPTH
+  ,SERIAL_OUT(Serial)
+  ,NONE//must have 2 items at least
+);
+
+NAVROOT(nav,mainMenu,MAX_DEPTH,in,out);
+
+
+/*  MENU STUFF
+//NO input
+Menu::chainStream<0> in(NULL);
 
 //define output device
-Menu::idx_t serialTops[MAX_DEPTH] = {0};
-serialOut outSerial(Serial, serialTops);
 
 //describing a menu output device without macros
 //define at least one panel for menu output
+
 constMEM Menu::panel panels[] MEMMODE = {{0, 0, 128 / fontW, 64 / fontH}};
 Menu::navNode* nodes[sizeof(panels) / sizeof(Menu::panel)]; //navNodes to store navigation status
 Menu::panelsList pList(panels, nodes, 1); //a list of panels and nodes
-Menu::idx_t tops[MAX_DEPTH] = {0,0}; //store cursor positions for each level
-SSD1306AsciiOut outOLED(&oled, tops, pList, fontW, 1+((fontH-1)>>3) ); //oled output device menu driver
-menuOut* constMEM outputs[] MEMMODE = {&outOLED, &outSerial}; //list of output devices
-outputsList out(outputs, sizeof(outputs) / sizeof(menuOut*)); //outputs list
+Menu::idx_t tops[MAX_DEPTH] = {0, 0}; //store cursor positions for each level
+SSD1306AsciiOut outOLED(&oled, tops, pList, 8, 1+((fontH-1)>>3) ); //oled output device menu driver
+Menu::menuOut* constMEM outputs[] MEMMODE = {&outOLED, &outSerial}; //list of output devices
+Menu::outputsList out(outputs, sizeof(outputs) / sizeof(Menu::menuOut*)); //outputs list
+
+//nav.showTitle = true; // SHow titles in the menus and submenus
+//  nav.timeOut = 60;  // Timeout after 60 seconds of inactivity and return to the sensor read screen
+//  nav.idleOn(); // Start with the main screen and not the menu
+*/
 
 
-//NAVROOT(nav,mainMenu,MAX_DEPTH,in,out);
-NAVROOT(nav, mainMenu, MAX_DEPTH, serial, out);
+
+
 
 EncoderMenuDriver encoderDriver ( &nav, &encoder, &encButton);
 void encButton_SingleClick(){
