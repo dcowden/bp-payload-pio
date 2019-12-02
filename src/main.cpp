@@ -42,7 +42,7 @@
 #define GAME_DURATION_SECS 30
 #define GAME_OVER_DANCE_SECS 5
 #define GAME_OVER_DANCE_DELAY_MS 100
-#define DISPLAY_UPDATE_INTERVAL_MS 1000
+#define DISPLAY_UPDATE_INTERVAL_MS 200
 #define MOTOR_UPDATE_INTERVAL_MS 10
 #define DEBUG 1
 
@@ -98,6 +98,7 @@ void startGame() {
     game.start();
     payloadMeter.setMaxValue(game.durationSeconds);
     payloadMeter.setToMax();
+    oled.clear();
     appMode = APP_GAME_RUNNING;
 }
 
@@ -140,25 +141,28 @@ void gameOverDisplay(){
 
 void updateDisplay(){  
   char SPACE = ' ';
-  oled.setCursor(0,1);
-  oled.print("Time Rem: "); oled.print(game.getSecondsRemaining());  oled.print(" s"); oled.clearToEOL();
-  oled.setCursor(0,2);
-  oled.print("BTNS:");  oled.print(SPACE); oled.print(payload.fwd_btn_1);
-  oled.print(SPACE); oled.print(payload.fwd_btn_2); oled.print(SPACE); oled.print(payload.fwd_btn_3);
-  oled.print(SPACE); oled.print(payload.bwd_btn_1); oled.clearToEOL();
-  oled.setCursor(0,3);
-  oled.print("SENS: L:");
-  oled.print(payload.left_sensor);
-  oled.print(" R:");   
-  oled.print(payload.right_sensor);
-  oled.print(SPACE);
+  oled.setCursor(0,0);
+  oled.print("Time Rem: "); 
+  oled.print(game.getSecondsRemaining());  
+  oled.println(" s"); 
   oled.clearToEOL();
-  oled.setCursor(0,4);
-  oled.print("MTR: L ");  
-  oled.print(payload.lastCommand.leftVelocity);
-  oled.print(" R: ");
-  oled.print(payload.lastCommand.rightVelocity);
-  oled.clearToEOL(); 
+  oled.print("BTNS:");  
+  oled.print(SPACE); 
+  oled.print(payload.fwd_btn_1);
+  oled.print(SPACE); 
+  oled.print(payload.fwd_btn_2); 
+  oled.print(SPACE); 
+  oled.print(payload.fwd_btn_3);
+  oled.print(SPACE); 
+  oled.println(payload.bwd_btn_1); 
+  oled.print("SEN: ");
+  oled.print(payload.left_sensor);
+  oled.print(" ");   
+  oled.println(payload.right_sensor);
+  oled.print("MTR: ");  
+  oled.print((int)payload.lastCommand.leftVelocity);
+  oled.print(" ");
+  oled.println((int)payload.lastCommand.rightVelocity);
 }
 
 void updateSerial(){
@@ -205,7 +209,6 @@ MENU(mainMenu, "BP Payload v0.1", Menu::doNothing, Menu::noEvent, Menu::wrapStyl
   ,FIELD(game.durationSeconds,"Game Time","",0,1000,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
   ,SUBMENU(speedSubMenu)
   ,OP("Start Game!",doStartGame,Menu::enterEvent)
-  ,EXIT("<Back")
 );
 
 Menu::serialIn serial(Serial);
@@ -249,14 +252,19 @@ void loop() {
     motorCommandTimer.update();
 
     #if DEBUG
-    serialTimer.update();
+    //serialTimer.update();
     #endif
 
     updateLEDs();
 
     if ( game.isOver() ){
       appMode = APP_MENU_MODE;
-      gameOverDisplay();   
+      oled.clear();
+      oled.println("");
+      oled.println("   GAME OVER   ");
+      oled.println("");
+      gameOverDisplay(); 
+      oled.clear();  
       nav.refresh();         
     }
   }

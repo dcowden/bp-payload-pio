@@ -20,11 +20,11 @@ void EncoderMenuDriver::update(){
     else{
         int encoderCount = encoder->getCount();
         if (encoderCount > lastEncoderCount ){
-            nav->doNav(Menu::upCmd);
+            nav->doNav(Menu::downCmd);
             lastEncoderCount = encoderCount;
         }
         else if ( encoderCount < lastEncoderCount){
-            nav->doNav(Menu::downCmd);
+            nav->doNav(Menu::upCmd);
             lastEncoderCount = encoderCount;
         }
     }
