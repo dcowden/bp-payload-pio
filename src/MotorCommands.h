@@ -6,7 +6,13 @@ const byte MOTOR_CONTROLLER_ADDRESS = 42;
 struct MotorCommand{
   float leftVelocity;
   float rightVelocity;
-  boolean enabled;
+  byte enabled;
+};
+
+typedef union  MotorPacket_t
+{
+    float velocity;
+    byte velocityBytes[4];
 };
 
 #endif

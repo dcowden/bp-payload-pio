@@ -43,7 +43,7 @@
 #define GAME_OVER_DANCE_SECS 5
 #define GAME_OVER_DANCE_DELAY_MS 100
 #define DISPLAY_UPDATE_INTERVAL_MS 200
-#define MOTOR_UPDATE_INTERVAL_MS 10
+#define MOTOR_UPDATE_INTERVAL_MS 50
 #define DEBUG 1
 
 Game game;
@@ -60,19 +60,26 @@ OneButton encButton(ROTARY_ENCODER_BUTTON_PIN, true);
 void updateDisplay();
 void updateLEDs();
 void updateSerial();
-void sendMotorCommand();
+void sendMotorCommand(){
+    Wire.beginTransmission (MOTOR_CONTROLLER_ADDRESS );
+    I2C_writeAnything (payload.lastCommand.leftVelocity);
+    I2C_writeAnything (payload.lastCommand.rightVelocity);
+    I2C_writeAnything (payload.lastCommand.enabled);
+    Wire.endTransmission (); 
+}
 void encButton_SingleClick();
 void encButton_DoubleClick();
 
-Ticker displayTimer(updateDisplay,DISPLAY_UPDATE_INTERVAL_MS);
-Ticker serialTimer(updateSerial,DISPLAY_UPDATE_INTERVAL_MS);
-Ticker motorCommandTimer(sendMotorCommand,MOTOR_UPDATE_INTERVAL_MS);
+Ticker displayTimer(updateDisplay,DISPLAY_UPDATE_INTERVAL_MS,0,MILLIS);
+Ticker serialTimer(updateSerial,DISPLAY_UPDATE_INTERVAL_MS,0,MILLIS);
+Ticker motorCommandTimer(sendMotorCommand,MOTOR_UPDATE_INTERVAL_MS,0,MILLIS);
 
 enum AppModeValues
 {
   APP_GAME_RUNNING,
   APP_MENU_MODE,
-  APP_PROCESS_MENU_CMD
+  APP_PROCESS_MENU_CMD,
+  APP_MANUAL_DRIVE_MODE
 };
 int appMode = APP_MENU_MODE;
 
@@ -99,6 +106,7 @@ void startGame() {
     payloadMeter.setMaxValue(game.durationSeconds);
     payloadMeter.setToMax();
     oled.clear();
+    payload.enable();
     appMode = APP_GAME_RUNNING;
 }
 
@@ -108,16 +116,25 @@ void setupEncoder(){
   encButton.setDebounceTicks(80);
   encoder.attachSingleEdge(ROTARY_ENCODER_A_PIN,ROTARY_ENCODER_B_PIN);
 }
-
+void setupButtons(){
+  pinMode(BTN_FWD_1,INPUT_PULLUP);
+  pinMode(BTN_FWD_2,INPUT_PULLUP);
+  pinMode(BTN_FWD_3,INPUT_PULLUP);
+  pinMode(BTN_BWD,INPUT_PULLUP);
+}
 void setup() {
-  displayTimer.start();
-  serialTimer.start();
-  motorCommandTimer.start();
-  Serial.begin(115200);
+  Serial.begin(57600);
   Wire.begin();
+  Wire.setClock(100000);  
   setupLEDs();
   setupOLED();
   setupEncoder();
+  setupButtons();
+  displayTimer.start();
+  serialTimer.start();
+  motorCommandTimer.start();
+  payload.disable();
+
 }
 
 void updateLEDs(){
@@ -162,7 +179,9 @@ void updateDisplay(){
   oled.print("MTR: ");  
   oled.print((int)payload.lastCommand.leftVelocity);
   oled.print(" ");
-  oled.println((int)payload.lastCommand.rightVelocity);
+  oled.print((int)payload.lastCommand.rightVelocity);
+  oled.clearToEOL();
+
 }
 
 void updateSerial(){
@@ -188,7 +207,13 @@ void updateSerial(){
    Serial.print(SPACE);   
    Serial.print("RM:");
    Serial.print(payload.lastCommand.rightVelocity);
-   Serial.println(SPACE);     
+   Serial.print(" EN:");
+   Serial.print(payload.lastCommand.enabled);
+   Serial.print(" Mode:");
+   Serial.print(payload.manualDrive);
+   Serial.print(" enabled:");
+   Serial.println(payload.enabled);
+   
 }
 
 Menu::result doStartGame() {
@@ -196,7 +221,24 @@ Menu::result doStartGame() {
   startGame();
   return proceed;
 }
-MENU(speedSubMenu, "Speed Settings", Menu::doNothing, Menu::noEvent, Menu::wrapStyle
+
+Menu::result doStartManualControl(){
+  Serial.println("Manual Mode Enabled");
+  payload.manualDrive = true;  
+  payload.enable();
+  return proceed;
+}
+
+Menu::result doEndManualControl(){
+  Serial.println("Auto Mode");
+  payload.disable();
+  payload.manualDrive = false;
+  return proceed;
+}
+
+
+MENU(settingsSubMenu, "Settings", Menu::doNothing, Menu::noEvent, Menu::wrapStyle
+    ,FIELD(game.durationSeconds,"Game Time","",0,1000,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
     ,FIELD(payload.bwd_speed,"BwdSpeed","",-200,0,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
     ,FIELD(payload.normal_speed,"FwdSpeed1X","",20,200,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
     ,FIELD(payload.medium_speed,"FwdSpeed2X","",60,220,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
@@ -204,11 +246,16 @@ MENU(speedSubMenu, "Speed Settings", Menu::doNothing, Menu::noEvent, Menu::wrapS
     , EXIT("<Back")
 );
 
+int driveMode=1;
+TOGGLE(driveMode,driveModeMenu,"Motors: ",doNothing,noEvent,wrapStyle
+  ,VALUE("MAN",0,doStartManualControl,noEvent)
+  ,VALUE("AUTO",1,doEndManualControl,noEvent)
+);
 
 MENU(mainMenu, "BP Payload v0.1", Menu::doNothing, Menu::noEvent, Menu::wrapStyle
-  ,FIELD(game.durationSeconds,"Game Time","",0,1000,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
-  ,SUBMENU(speedSubMenu)
   ,OP("Start Game!",doStartGame,Menu::enterEvent)
+  ,SUBMENU(driveModeMenu)
+  ,SUBMENU(settingsSubMenu)
 );
 
 Menu::serialIn serial(Serial);
@@ -239,38 +286,34 @@ void encButton_DoubleClick(){
   encoderDriver.button_dbl_clicked();
 }
 
-void sendMotorCommand(){
-    Wire.beginTransmission (MOTOR_CONTROLLER_ADDRESS );
-    I2C_writeAnything (payload.lastCommand);
-    Wire.endTransmission (); 
-}
 void loop() {
+  
+  payload.update();
+  motorCommandTimer.update();  
+  serialTimer.update();
+  updateLEDs();
 
   if ( appMode == APP_GAME_RUNNING){
-    payload.update();
+    //check button, so we can cancel
+    encButton.tick();    
     displayTimer.update();
-    motorCommandTimer.update();
-
-    #if DEBUG
-    //serialTimer.update();
-    #endif
-
-    updateLEDs();
-
-    if ( game.isOver() ){
+    if ( encButton.isLongPressed() || game.isOver() ){
       appMode = APP_MENU_MODE;
+      payload.disable();
       oled.clear();
       oled.println("");
-      oled.println("   GAME OVER   ");
+      oled.println("-----------------");
+      oled.println("-- GAME OVER   --");
+      oled.println("-----------------");
       oled.println("");
       gameOverDisplay(); 
       oled.clear();  
       nav.refresh();         
     }
   }
-  else if ( appMode == APP_MENU_MODE){      
-    encoderDriver.update();
+  else if ( appMode == APP_MENU_MODE){
+    encoderDriver.update();          
     FastLED.delay(100);    
   }
-  
+  //
 }

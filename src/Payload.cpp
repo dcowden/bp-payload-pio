@@ -14,12 +14,31 @@ Payload::Payload(){
     left_sensor=0;
     right_sensor = 0;  
     lastError=0.0;
+    manualDrive=false;
+    enabled=false;
+    MotorCommand mc { 0.0, 0.0, false};
+    lastCommand = mc;
+
 }
 int Payload::getNumberForwardButtonsPressed(){
   return num_fwd_pressed ();
 }
+void Payload::enable(){
+  enabled = true;
+  lastCommand.enabled = true;
+}
 
-MotorCommand Payload::update(){
+void Payload::disable(){
+  enabled = false;
+  setBothVelocity(0.0);
+  lastCommand.enabled = false;     
+}
+void Payload::update(){
+
+  if ( !enabled ){
+    return;
+  }
+
   fwd_btn_1 = readButton(BTN_FWD_1);
   fwd_btn_2 = readButton(BTN_FWD_2);
   fwd_btn_3 = readButton(BTN_FWD_3);
@@ -27,8 +46,18 @@ MotorCommand Payload::update(){
   left_sensor = readADCPinPeak(WIRE_SENSOR_LEFT,NUM_ADC_SAMPLES);
   right_sensor= readADCPinPeak(WIRE_SENSOR_RIGHT,NUM_ADC_SAMPLES);
 
-  MotorCommand mc { 0.0, 0.0, false};
   int nominalSpeed = computeNominalSpeed();
+
+  if ( manualDrive){
+    if ( num_fwd_pressed() > 0 ){
+      setBothVelocity(FWD_SPEED_BASE_3X);
+    }
+    else{
+      setBothVelocity(0.0);
+    }
+    lastCommand.enabled = true;   
+    return;
+  }
 
   if (nominalSpeed > 0 ){
     int error = left_sensor - right_sensor;
@@ -39,12 +68,15 @@ MotorCommand Payload::update(){
     if ( left_sensor > SENSOR_CLOSE || right_sensor > SENSOR_CLOSE ){
        nominalSpeed = SLOW_SPEED;
     }
-    mc.leftVelocity = constrain(nominalSpeed - correction,MIN_SPEED,MAX_SPEED);
-    mc.leftVelocity = constrain(nominalSpeed + correction,MIN_SPEED,MAX_SPEED);
-    mc.enabled = true;
+    setVelocity(  constrain(nominalSpeed - correction,MIN_SPEED,MAX_SPEED),
+                  constrain(nominalSpeed + correction,MIN_SPEED,MAX_SPEED)
+    );
+    lastCommand.enabled = true;
   }
-  lastCommand = mc;
-  return mc;
+  else{
+    setBothVelocity(0.0);
+  }
+  return;
 }
 
 int Payload::readButton(int buttonPin){
@@ -70,7 +102,13 @@ int Payload::computeNominalSpeed(){
     return 0;
   }
 }
-
+void Payload::setVelocity(float left, float right){
+      lastCommand.leftVelocity = left;
+      lastCommand.rightVelocity = right;
+}
+void Payload::setBothVelocity(float both){
+  setVelocity(both,both);
+}
 int Payload::num_fwd_pressed ( ){
   return fwd_btn_1 + fwd_btn_2 + fwd_btn_3 - bwd_btn_1;
 }
@@ -89,16 +127,14 @@ Game::Game(){
   durationSeconds = DEFAULT_GAME_TIME_SEC;
 } 
 
-
 int Game::getSecondsRemaining(){
   long endTime = startTime + 1000*durationSeconds;
   return (int)(endTime - millis() ) / 1000;  
 }
-
 boolean Game::isOver(){
-  return getSecondsRemaining()<= 0;
+  return (getSecondsRemaining() < 0);
+  
 }
-
-boolean Game::start(){
+void Game::start(){
   startTime = millis();
 }
