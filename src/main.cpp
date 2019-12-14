@@ -37,7 +37,7 @@
 #define LED_PIN 27
 
 //app constants
-#define NUM_LEDS 13
+#define NUM_LEDS 60
 #define I2C_ADDRESS 0x3C
 #define GAME_DURATION_SECS 30
 #define GAME_OVER_DANCE_SECS 5
@@ -51,8 +51,8 @@ Game game;
 CRGB leds[NUM_LEDS];
 SSD1306AsciiWire oled;
 ESP32Encoder encoder;
-LedRange payloadRange [1] = {  { 0, 12 } } ; 
-LedMeter payloadMeter = LedMeter(leds,payloadRange,1,CRGB::Blue, CRGB::Black);
+LedRange payloadRange [2] = {  { 9, 30 } , { 59,31 }} ; //
+LedMeter payloadMeter = LedMeter(leds,payloadRange,2,CRGB::Blue, CRGB::Black);
 Payload payload;
 OneButton encButton(ROTARY_ENCODER_BUTTON_PIN, true);
 
@@ -122,6 +122,10 @@ void setupButtons(){
   pinMode(BTN_FWD_3,INPUT_PULLUP);
   pinMode(BTN_BWD,INPUT_PULLUP);
 }
+void setupSensors(){
+  pinMode(WIRE_SENSOR_RIGHT,INPUT_PULLUP);
+  pinMode(WIRE_SENSOR_LEFT,INPUT_PULLUP);
+}
 void setup() {
   Serial.begin(57600);
   Wire.begin();
@@ -172,10 +176,12 @@ void updateDisplay(){
   oled.print(payload.fwd_btn_3);
   oled.print(SPACE); 
   oled.println(payload.bwd_btn_1); 
+  oled.clearToEOL();
   oled.print("SEN: ");
   oled.print(payload.left_sensor);
   oled.print(" ");   
   oled.println(payload.right_sensor);
+  oled.clearToEOL();
   oled.print("MTR: ");  
   oled.print((int)payload.lastCommand.leftVelocity);
   oled.print(" ");

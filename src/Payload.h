@@ -3,28 +3,29 @@
 #include "MotorCommands.h"
 
 //pin definitions
-#define WIRE_SENSOR_RIGHT 36
-#define WIRE_SENSOR_LEFT 39
+#define WIRE_SENSOR_RIGHT 39
+#define WIRE_SENSOR_LEFT 36
 #define BTN_FWD_1 4
 #define BTN_FWD_2 16
 #define BTN_FWD_3 17
 #define BTN_BWD 5 
 
 //app contants
-#define FWD_SPEED_BASE_1X 2000.0
+#define FWD_SPEED_BASE_1X 3200.0
 #define FWD_SPEED_BASE_2X 2800.0
 #define FWD_SPEED_BASE_3X 3200.0
 #define BWD_SPEED_BASE -2000.0
 #define NUM_ADC_SAMPLES 10
 #define MAX_SPEED 4000.0
 #define MIN_SPEED -4000.0
-#define MAX_SENSOR 775
-#define SENSOR_CLOSE 150
-#define SLOW_SPEED 900.0
+#define MAX_SENSOR 4000
+#define SENSOR_CLOSE 2500
+#define SENSOR_CENTERED 100
+#define SLOW_SPEED 1500.0
 #define DEFAULT_GAME_TIME_SEC 600
 
-#define P_GAIN 1.0
-#define D_GAIN 0.1
+#define P_GAIN 1.5
+#define D_GAIN 0.01
 
 class Payload{
   public:
