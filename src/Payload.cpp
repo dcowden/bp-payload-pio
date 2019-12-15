@@ -47,7 +47,8 @@ void Payload::update(){
   right_sensor= readADCPinPeak(WIRE_SENSOR_RIGHT,NUM_ADC_SAMPLES);
 
   int nominalSpeed = computeNominalSpeed();
-
+  boolean shouldDrive = ( nominalSpeed != 0 );
+  boolean goingForward = ( nominalSpeed > 0 );
   if ( manualDrive){
     if ( num_fwd_pressed() > 0 ){
       setBothVelocity(FWD_SPEED_BASE_3X);
@@ -59,23 +60,40 @@ void Payload::update(){
     return;
   }
 
-  if (nominalSpeed > 0 ){
+  if ( shouldDrive ){
     int error = left_sensor - right_sensor;
     int d_err = error - lastError;
     int correction = (float)error * P_GAIN + (float)d_err * D_GAIN ;
     lastError = error;
-  
-    if ( left_sensor > SENSOR_CLOSE || right_sensor > SENSOR_CLOSE ){
-       nominalSpeed = SLOW_SPEED;
+
+    if (goingForward ){
+      if ( left_sensor > SENSOR_CLOSE || right_sensor > SENSOR_CLOSE ){
+        nominalSpeed = SLOW_SPEED;
+      }
+      setVelocity(  constrain(nominalSpeed - correction,MIN_SPEED,MAX_SPEED),
+                    constrain(nominalSpeed + correction,MIN_SPEED,MAX_SPEED)
+      );
     }
-    setVelocity(  constrain(nominalSpeed - correction,MIN_SPEED,MAX_SPEED),
-                  constrain(nominalSpeed + correction,MIN_SPEED,MAX_SPEED)
-    );
+    else{
+      
+      setBothVelocity(0.0);  
+      lastCommand.enabled = false;    
+      /**
+      if ( left_sensor > SENSOR_CLOSE || right_sensor > SENSOR_CLOSE ){
+        nominalSpeed = -SLOW_SPEED;
+      }
+      setVelocity(  constrain(nominalSpeed - correction,MIN_SPEED,MAX_SPEED),
+                    constrain(nominalSpeed + correction,MIN_SPEED,MAX_SPEED)
+      ); **/
+    }
     lastCommand.enabled = true;
   }
   else{
+    lastCommand.enabled = false;
     setBothVelocity(0.0);
   }
+
+
   return;
 }
 

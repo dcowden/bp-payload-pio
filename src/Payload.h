@@ -11,21 +11,21 @@
 #define BTN_BWD 5 
 
 //app contants
-#define FWD_SPEED_BASE_1X 3200.0
-#define FWD_SPEED_BASE_2X 2800.0
-#define FWD_SPEED_BASE_3X 3200.0
+#define FWD_SPEED_BASE_1X 1000.0
+#define FWD_SPEED_BASE_2X 2200.0
+#define FWD_SPEED_BASE_3X 3500.0
 #define BWD_SPEED_BASE -2000.0
 #define NUM_ADC_SAMPLES 10
 #define MAX_SPEED 4000.0
 #define MIN_SPEED -4000.0
 #define MAX_SENSOR 4000
-#define SENSOR_CLOSE 2500
+#define SENSOR_CLOSE 5000
 #define SENSOR_CENTERED 100
-#define SLOW_SPEED 1500.0
+#define SLOW_SPEED 1000.0
 #define DEFAULT_GAME_TIME_SEC 600
 
-#define P_GAIN 1.5
-#define D_GAIN 0.01
+#define P_GAIN 1.2
+#define D_GAIN 0.02
 
 class Payload{
   public:
