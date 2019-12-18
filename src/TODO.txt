@@ -1,0 +1,15 @@
+High Priority
+* Misses small curves
+* Higher max speed
+* open up speed options
+* red button should stop progress
+* odd delay after game over
+
+Next Features
+* advancing non-stop should be overtime
+* proximity detection for end
+* proximity detection for checkpoint-- add time
+
+
+Low priority
+* move eeprom code into separate file

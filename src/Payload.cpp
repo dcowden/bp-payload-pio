@@ -50,8 +50,14 @@ void Payload::update(){
   boolean shouldDrive = ( nominalSpeed != 0 );
   boolean goingForward = ( nominalSpeed > 0 );
   if ( manualDrive){
-    if ( num_fwd_pressed() > 0 ){
-      setBothVelocity(FWD_SPEED_BASE_3X);
+    if ( fwd_btn_1 ){
+      setVelocity(FWD_SPEED_BASE_1X,0.0);
+    }
+    else if ( fwd_btn_2){
+      setVelocity(0.0,FWD_SPEED_BASE_1X);
+    }
+    else if ( fwd_btn_3 ){
+      setBothVelocity(FWD_SPEED_BASE_1X);
     }
     else{
       setBothVelocity(0.0);
@@ -123,6 +129,7 @@ int Payload::computeNominalSpeed(){
     return 0;
   }
 }
+
 void Payload::setVelocity(float left, float right){
       lastCommand.leftVelocity = left;
       lastCommand.rightVelocity = right;
