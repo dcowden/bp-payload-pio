@@ -245,10 +245,10 @@ Menu::result doEndManualControl(){
 
 MENU(settingsSubMenu, "Settings", Menu::doNothing, Menu::noEvent, Menu::wrapStyle
     ,FIELD(game.durationSeconds,"Game Time","",0,1000,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
-    ,FIELD(payload.bwd_speed,"BwdSpeed","",-200,0,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
-    ,FIELD(payload.normal_speed,"FwdSpeed1X","",20,200,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
-    ,FIELD(payload.medium_speed,"FwdSpeed2X","",60,220,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
-    ,FIELD(payload.max_speed,"FwdSpeed3X","",80,255,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+    ,FIELD(payload.bwd_speed,"BwdSpeed","",-2000,0,500,100, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+    ,FIELD(payload.normal_speed,"FwdSpeed1X","",1000,2000,500,100, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+    ,FIELD(payload.medium_speed,"FwdSpeed2X","",1000,4000,500,100, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+    ,FIELD(payload.max_speed,"FwdSpeed3X","",1000,4000,500,100, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
     , EXIT("<Back")
 );
 
