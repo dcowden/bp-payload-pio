@@ -12,6 +12,7 @@
 #include "EncoderMenuDriver.h"
 #include "Ticker.h"
 #include "pinmap.h"
+#include "BLEScanner.h"
 
 //Menu Includes
 #include <menuIO/keyIn.h>
@@ -65,7 +66,9 @@ Payload payload;
 Game game(&payload);
 
 OneButton encButton(ROTARY_ENCODER_BUTTON_PIN, true);
+BLEProximityScanner scanner;
 
+TaskHandle_t BLETask;
 
 void sendMotorCommand(){
     Wire.beginTransmission (MOTOR_CONTROLLER_ADDRESS );
@@ -137,6 +140,29 @@ void setupSensors(){
 void setupEEProm(){
   EEPROM.begin(4096);
   readGameSettings();
+}
+
+void bleScanLoop(void * pvParameters){
+  scanner.init();
+  while (true){
+     scanner.update();
+     if ( scanner.foundDevice() ){
+       Serial.println("FOUND IT. I FOUND IT!");
+     }
+     else{
+       Serial.println("DINT FIND ANYTHING in BLE");
+     }
+  }
+}
+void setupBLETask(){
+  xTaskCreatePinnedToCore(
+              bleScanLoop,  /* Task function. */
+              "BLESCAN",    /* name of task. */
+              5000,      /* Stack size of task */
+              NULL,       /* parameter of the task */
+              1,          /* priority of the task */
+              &BLETask,     /* Task handle to keep track of created task */
+              1);    
 }
 
 void startTimers(){
