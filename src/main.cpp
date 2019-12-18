@@ -6,7 +6,8 @@
 #include "MotorCommands.h"
 #include "I2CAnything.h"
 #include "Payload.h"
-
+#include <EEPROM32_Rotate.h>
+#include <EEPROM.h>
 #include "OneButton.h"
 #include <ESP32Encoder.h>
 #include "EncoderMenuDriver.h"
@@ -45,6 +46,43 @@
 #define DISPLAY_UPDATE_INTERVAL_MS 200
 #define MOTOR_UPDATE_INTERVAL_MS 50
 #define DEBUG 1
+#define EEPROMStartAddress 0 // Where to start reading and writing EEPROM
+
+//EEPROM32_Rotate EEPROM;
+
+// Taken from :https://robotic-controls.com/learn/arduino/organized-eeprom-storage
+// And from: https://embeddedgurus.com/stack-overflow/2009/11/keeping-your-eeprom-data-valid-through-firmware-updates/
+struct storageStruct
+{
+    //stuff in here gets stored to the EEPROM
+    int firmwareVersion;  // Firmware version to check if we need to overwrite
+    int16_t gameTimeSeconds;        
+    int16_t fwdSpeed_1;      
+    int16_t fwdSpeed_2;    
+    int16_t fwdSpeed_3; 
+    int16_t bwdSpeed_1;          
+};
+
+struct storageStruct EEPROMSTORAGE; // Temorary struct for reading EEPROM into
+
+struct storageStruct settingsEEPROM = {
+    12,      
+    600,   
+    1500,  
+    2500,  
+    3500,  
+    -1500
+}; 
+
+const uint16_t EEPROM_storageSize = sizeof(EEPROMSTORAGE);
+
+
+
+void checkEEPROM();         //
+void readEEPROM();          //
+void writeEEPROM();         //
+void writeEEPROMDefaults(); //
+
 
 Game game;
 
@@ -100,9 +138,9 @@ void setupOLED(){
 
 void startGame() {
     Serial.print("Game Starting: ");
-    Serial.print(game.durationSeconds);
+    Serial.print(settingsEEPROM.gameTimeSeconds);
     Serial.println( " secs.");
-    game.start();
+    game.start(settingsEEPROM.gameTimeSeconds);
     payloadMeter.setMaxValue(game.durationSeconds);
     payloadMeter.setToMax();
     oled.clear();
@@ -126,6 +164,40 @@ void setupSensors(){
   pinMode(WIRE_SENSOR_RIGHT,INPUT_PULLUP);
   pinMode(WIRE_SENSOR_LEFT,INPUT_PULLUP);
 }
+
+void setupEEProm(){
+  //EEPROM.add_by_name("settings");
+  //EEPROM.add_by_name("settings2");
+  //EEPROM.offset(0xFF0);
+  // Look for the most recent valid data and populate the memory buffer
+  EEPROM.begin(4096);
+
+  // commit 512 bytes of ESP8266 flash (for "EEPROM" emulation)
+  // this step actually loads the content (512 bytes) of flash into
+  // a 512-byte-array cache in RAM
+  Serial.print("EEPROM size is: ");
+  Serial.println(EEPROM_storageSize);
+
+  Serial.println("Reading EEPROM");  
+  readEEPROM();
+
+  Serial.print("EEPROMSTORAGE.gameTimeSeconds is: ");
+  Serial.println(EEPROMSTORAGE.gameTimeSeconds);
+
+  Serial.println("Checking EEPROM");
+  checkEEPROM();  
+}
+void startTimers(){
+  displayTimer.start();
+  serialTimer.start();
+  motorCommandTimer.start();
+}
+
+void stopTimers(){
+  displayTimer.stop();
+  serialTimer.stop();
+  motorCommandTimer.stop();
+}
 void setup() {
   Serial.begin(57600);
   Wire.begin();
@@ -134,9 +206,8 @@ void setup() {
   setupOLED();
   setupEncoder();
   setupButtons();
-  displayTimer.start();
-  serialTimer.start();
-  motorCommandTimer.start();
+  setupEEProm();
+  startTimers();
   payload.disable();
 
 }
@@ -228,6 +299,11 @@ Menu::result doStartGame() {
   return proceed;
 }
 
+Menu::result menuUpdateEEPROM() {
+  writeEEPROM();
+  return quit;
+}
+
 Menu::result doStartManualControl(){
   Serial.println("Manual Mode Enabled");
   payload.manualDrive = true;  
@@ -244,11 +320,12 @@ Menu::result doEndManualControl(){
 
 
 MENU(settingsSubMenu, "Settings", Menu::doNothing, Menu::noEvent, Menu::wrapStyle
-    ,FIELD(game.durationSeconds,"Game Time","",0,1000,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+    ,FIELD(settingsEEPROM.gameTimeSeconds,"Game Time","",0,1000,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
     ,FIELD(payload.bwd_speed,"BwdSpeed","",-2000,0,500,100, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
     ,FIELD(payload.normal_speed,"FwdSpeed1X","",1000,2000,500,100, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
     ,FIELD(payload.medium_speed,"FwdSpeed2X","",1000,4000,500,100, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
     ,FIELD(payload.max_speed,"FwdSpeed3X","",1000,4000,500,100, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+    ,OP("Save Settings",menuUpdateEEPROM, Menu::enterEvent)
     , EXIT("<Back")
 );
 
@@ -321,4 +398,50 @@ void loop() {
     FastLED.delay(100);    
   }
   //
+}
+
+// Read EEPROM into the EEPROMSTORAGE struct
+// From a post of reading/writing structs to EEPROM: http://forum.arduino.cc/index.php?topic=479904.0
+void readEEPROM() {  
+  EEPROM.get(EEPROMStartAddress, EEPROMSTORAGE); 
+}
+
+
+// Check EEPROM for the version and overwrite with defaults if they don't match
+void checkEEPROM() {
+  if (EEPROMSTORAGE.firmwareVersion != settingsEEPROM.firmwareVersion) {
+    // Overwrite with defaults
+    Serial.println("Firmware value does not match so writing defaults!");
+    Serial.println(EEPROMSTORAGE.firmwareVersion);
+    Serial.println(settingsEEPROM.firmwareVersion);
+    writeEEPROMDefaults();
+  }
+  else {
+    // Do not overwrite leave values alone
+    Serial.println("Firmware values are lining up so reading EEPROM values into settings");
+    settingsEEPROM = EEPROMSTORAGE;
+  }
+}
+
+// From a post of reading/writing structs to EEPROM: http://forum.arduino.cc/index.php?topic=479904.0
+void writeEEPROM() {
+    // From: https://docs.particle.io/reference/device-os/firmware/electron/#put-art
+    stopTimers();
+    Serial.println("Writing current settings to EEPROM");
+    EEPROM.put(EEPROMStartAddress, settingsEEPROM); // Store the object to EEPROM
+    Serial.println("Committing to EEPROM");
+    EEPROM.commit();
+    startTimers();
+}
+
+void writeEEPROMDefaults() {
+  // From: https://docs.particle.io/reference/device-os/firmware/electron/#put-
+    stopTimers();
+    Serial.println("Writing default values to EEPROM");
+    EEPROM.put(EEPROMStartAddress, settingsEEPROM); // Store the object to EEPROM
+    EEPROM.commit();
+    startTimers();
+    Serial.println("Committing to EEPROM");
+    readEEPROM();
+    
 }

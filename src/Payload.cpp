@@ -145,7 +145,6 @@ int Payload::readADCPinPeak(int pin, int samples ){
 }
 
 Game::Game(){
-  durationSeconds = DEFAULT_GAME_TIME_SEC;
 } 
 
 int Game::getSecondsRemaining(){
@@ -156,6 +155,7 @@ boolean Game::isOver(){
   return (getSecondsRemaining() <= 0);
   
 }
-void Game::start(){
+void Game::start(int gameDurationSeconds){
+  durationSeconds = gameDurationSeconds;
   startTime = millis();
 }

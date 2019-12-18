@@ -68,7 +68,7 @@ class Game{
     int getSecondsRemaining();
     int durationSeconds;
     boolean isOver();
-    void start();
+    void start(int gameDurationSeconds);
   private:
     long startTime;    
 };
