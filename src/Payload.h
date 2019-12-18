@@ -11,7 +11,7 @@
 #define BTN_BWD 5 
 
 //app contants
-#define FWD_SPEED_BASE_1X 1000.0
+#define FWD_SPEED_BASE_1X 1500.0
 #define FWD_SPEED_BASE_2X 2200.0
 #define FWD_SPEED_BASE_3X 3500.0
 #define BWD_SPEED_BASE -2000.0
@@ -19,12 +19,13 @@
 #define MAX_SPEED 4000.0
 #define MIN_SPEED -4000.0
 #define MAX_SENSOR 4000
-#define SENSOR_CLOSE 5000
+#define SENSOR_CLOSE 3500
 #define SENSOR_CENTERED 100
-#define SLOW_SPEED 1000.0
-#define DEFAULT_GAME_TIME_SEC 600
+#define SLOW_SPEED 2000.0
+#define DEFAULT_GAME_TIME_SEC 10
 
-#define P_GAIN 1.2
+#define P_GAIN 0.6
+#define I_GAIN 0.000
 #define D_GAIN 0.02
 
 class Payload{
@@ -42,6 +43,7 @@ class Payload{
     int left_sensor;
     int right_sensor;
     float lastError;
+    float totalError;
     int getNumberForwardButtonsPressed();
     void enable();
     void disable();

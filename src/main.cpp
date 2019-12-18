@@ -51,7 +51,7 @@ Game game;
 CRGB leds[NUM_LEDS];
 SSD1306AsciiWire oled;
 ESP32Encoder encoder;
-LedRange payloadRange [2] = {  { 9, 30 } , { 59,31 }} ; //
+LedRange payloadRange [2] = {  { 1, 29 } , { 58,30 }} ; //
 LedMeter payloadMeter = LedMeter(leds,payloadRange,2,CRGB::Blue, CRGB::Black);
 Payload payload;
 OneButton encButton(ROTARY_ENCODER_BUTTON_PIN, true);
@@ -92,7 +92,7 @@ void setupOLED(){
   Wire.setClock(400000L);  
   oled.begin(&Adafruit128x64, I2C_ADDRESS);
   oled.setFont(menuFont);
-  oled.displayRemap(false);
+  oled.displayRemap(true);
   oled.clear();
   oled.println("BattlePoint v1.0"); 
   oled.println("Starting..."); 
@@ -114,7 +114,7 @@ void setupEncoder(){
   encButton.attachDoubleClick(encButton_DoubleClick);
   encButton.attachClick(encButton_SingleClick);
   encButton.setDebounceTicks(80);
-  encoder.attachSingleEdge(ROTARY_ENCODER_A_PIN,ROTARY_ENCODER_B_PIN);
+  encoder.attachHalfQuad(ROTARY_ENCODER_A_PIN,ROTARY_ENCODER_B_PIN);
 }
 void setupButtons(){
   pinMode(BTN_FWD_1,INPUT_PULLUP);
@@ -290,8 +290,7 @@ void encButton_SingleClick(){
 }
 void encButton_DoubleClick(){
   encoderDriver.button_dbl_clicked();
-}
-
+} 
 void loop() {
   
   payload.update();

@@ -62,8 +62,11 @@ void Payload::update(){
 
   if ( shouldDrive ){
     int error = left_sensor - right_sensor;
+    
     int d_err = error - lastError;
-    int correction = (float)error * P_GAIN + (float)d_err * D_GAIN ;
+    totalError += error;
+
+    int correction = (float)error * P_GAIN + (float)d_err * D_GAIN  + (float)totalError * I_GAIN;
     lastError = error;
 
     if (goingForward ){
@@ -150,7 +153,7 @@ int Game::getSecondsRemaining(){
   return (int)(endTime - millis() ) / 1000;  
 }
 boolean Game::isOver(){
-  return (getSecondsRemaining() < 0);
+  return (getSecondsRemaining() <= 0);
   
 }
 void Game::start(){
