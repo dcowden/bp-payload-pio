@@ -1,15 +1,24 @@
 High Priority
-* Misses small curves
-* Higher max speed
-* open up speed options
-* red button should stop progress
-* odd delay after game over
+* odd delay after game over ?????
 
 Next Features
-* advancing non-stop should be overtime
 * proximity detection for end
 * proximity detection for checkpoint-- add time
 
 
 Low priority
 * move eeprom code into separate file
+* set times in ft/sec not rpm
+* fix missing small curves
+   --- possible algo. if no sensor readings and you had a 4000 in the last xx,
+     then you missed the wire, turn towards the sensor
+
+DONE
+* Higher max speed
+* open up speed options
+* refactor icky eeprom write code
+* add speed settings into eeprom
+* move all pin definitions into one file
+* red button should stop progress
+* Misses small curves
+* advancing non-stop should be overtime

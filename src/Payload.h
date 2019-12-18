@@ -1,41 +1,38 @@
 #ifndef POSE_H
 #define POSE_H
 #include "MotorCommands.h"
-
-//pin definitions
-#define WIRE_SENSOR_RIGHT 39
-#define WIRE_SENSOR_LEFT 36
-#define BTN_FWD_1 4
-#define BTN_FWD_2 16
-#define BTN_FWD_3 17
-#define BTN_BWD 5 
+#include "pinmap.h"
 
 //app contants
-#define FWD_SPEED_BASE_1X 1500.0
-#define FWD_SPEED_BASE_2X 2200.0
-#define FWD_SPEED_BASE_3X 3500.0
-#define BWD_SPEED_BASE -2000.0
 #define NUM_ADC_SAMPLES 10
-#define MAX_SPEED 4000.0
-#define MIN_SPEED -4000.0
+#define MAX_SPEED 6000.0
+#define MIN_SPEED -6000.0
 #define MAX_SENSOR 4000
-#define SENSOR_CLOSE 3500
+#define SENSOR_CLOSE 3000
 #define SENSOR_CENTERED 100
 #define SLOW_SPEED 2000.0
-#define DEFAULT_GAME_TIME_SEC 10
+#define ENDGAME_OVERTIME_MAX_NON_POSSESSION_MILLIS 5000 //how long can elapse with attackers not possessing
 
-#define P_GAIN 0.6
-#define I_GAIN 0.000
+#define P_GAIN 0.8
 #define D_GAIN 0.02
+
+struct gameOptions
+{
+    //stuff in here gets stored to the EEPROM
+    int firmwareVersion;  // Firmware version to check if we need to overwrite
+    int16_t gameTimeSeconds;        
+    int16_t fwdSpeed_1;      
+    int16_t fwdSpeed_2;    
+    int16_t fwdSpeed_3; 
+    int16_t bwdSpeed_1;          
+};
+
 
 class Payload{
   public:
     Payload();
-    void update();    
-    int normal_speed;
-    int medium_speed;
-    int max_speed;
-    int bwd_speed;
+    void update();  
+    struct gameOptions options;  
     int fwd_btn_1;
     int fwd_btn_2;
     int fwd_btn_3;
@@ -43,8 +40,10 @@ class Payload{
     int left_sensor;
     int right_sensor;
     float lastError;
-    float totalError;
     int getNumberForwardButtonsPressed();
+    boolean isMoving();
+    boolean isContested();
+    boolean isDefended();
     void enable();
     void disable();
     MotorCommand lastCommand; 
@@ -58,19 +57,28 @@ class Payload{
     int num_fwd_pressed();
     void setVelocity(float left, float right);
     void setBothVelocity(float both);
-    
+    void computeManualDrive();
+    void computeInGameDrive();
+    void stopAllMotors();
 
 };
 
 class Game{
   public:
-    Game();
+    Game(Payload* _payload);
     int getSecondsRemaining();
     int durationSeconds;
     boolean isOver();
-    void start(int gameDurationSeconds);
+    boolean isOverTime();
+    void start();
+    struct gameOptions options;
   private:
     long startTime;    
+    Payload* payload;
+    long lastNonPossessionTime;
+    boolean overTime;
+    boolean running;
+    boolean shouldEndGame();
 };
 
 #endif

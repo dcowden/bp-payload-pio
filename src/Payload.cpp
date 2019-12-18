@@ -3,10 +3,6 @@
 #include "MotorCommands.h"
 
 Payload::Payload(){
-    normal_speed = FWD_SPEED_BASE_1X;
-    medium_speed = FWD_SPEED_BASE_2X;
-    max_speed = FWD_SPEED_BASE_3X;
-    bwd_speed = BWD_SPEED_BASE;
     fwd_btn_1=0;
     fwd_btn_2=0;
     fwd_btn_3=0;
@@ -19,7 +15,9 @@ Payload::Payload(){
     MotorCommand mc { 0.0, 0.0, false};
     lastCommand = mc;
 
+
 }
+
 int Payload::getNumberForwardButtonsPressed(){
   return num_fwd_pressed ();
 }
@@ -33,6 +31,10 @@ void Payload::disable(){
   setBothVelocity(0.0);
   lastCommand.enabled = false;     
 }
+boolean Payload::isDefended(){
+  return bwd_btn_1;
+}
+
 void Payload::update(){
 
   if ( !enabled ){
@@ -46,33 +48,42 @@ void Payload::update(){
   left_sensor = readADCPinPeak(WIRE_SENSOR_LEFT,NUM_ADC_SAMPLES);
   right_sensor= readADCPinPeak(WIRE_SENSOR_RIGHT,NUM_ADC_SAMPLES);
 
+
+  if ( manualDrive){
+    computeManualDrive();
+  }
+  else{
+    computeInGameDrive();
+  }
+
+}
+
+void Payload::computeManualDrive(){
+  if ( fwd_btn_1 ){
+    setVelocity(options.fwdSpeed_1,0.0);
+  }
+  else if ( fwd_btn_2){
+    setVelocity(0.0,options.fwdSpeed_1);
+  }
+  else if ( fwd_btn_3 ){
+    setBothVelocity(options.fwdSpeed_1);
+  }
+  else{
+    stopAllMotors();
+  }
+}
+
+void Payload::computeInGameDrive(){
   int nominalSpeed = computeNominalSpeed();
   boolean shouldDrive = ( nominalSpeed != 0 );
   boolean goingForward = ( nominalSpeed > 0 );
-  if ( manualDrive){
-    if ( fwd_btn_1 ){
-      setVelocity(FWD_SPEED_BASE_1X,0.0);
-    }
-    else if ( fwd_btn_2){
-      setVelocity(0.0,FWD_SPEED_BASE_1X);
-    }
-    else if ( fwd_btn_3 ){
-      setBothVelocity(FWD_SPEED_BASE_1X);
-    }
-    else{
-      setBothVelocity(0.0);
-    }
-    lastCommand.enabled = true;   
-    return;
-  }
 
   if ( shouldDrive ){
     int error = left_sensor - right_sensor;
     
     int d_err = error - lastError;
-    totalError += error;
 
-    int correction = (float)error * P_GAIN + (float)d_err * D_GAIN  + (float)totalError * I_GAIN;
+    int correction = (float)error * P_GAIN + (float)d_err * D_GAIN ;
     lastError = error;
 
     if (goingForward ){
@@ -83,27 +94,16 @@ void Payload::update(){
                     constrain(nominalSpeed + correction,MIN_SPEED,MAX_SPEED)
       );
     }
-    else{
-      
-      setBothVelocity(0.0);  
-      lastCommand.enabled = false;    
-      /**
-      if ( left_sensor > SENSOR_CLOSE || right_sensor > SENSOR_CLOSE ){
-        nominalSpeed = -SLOW_SPEED;
-      }
-      setVelocity(  constrain(nominalSpeed - correction,MIN_SPEED,MAX_SPEED),
-                    constrain(nominalSpeed + correction,MIN_SPEED,MAX_SPEED)
-      ); **/
+    else{   
+      //later we want to actually drive backwards.
+      //but that will require more sensors
+      stopAllMotors();    
     }
-    lastCommand.enabled = true;
   }
   else{
-    lastCommand.enabled = false;
-    setBothVelocity(0.0);
+    stopAllMotors();
   }
 
-
-  return;
 }
 
 int Payload::readButton(int buttonPin){
@@ -113,32 +113,46 @@ int Payload::readButton(int buttonPin){
 
 int Payload::computeNominalSpeed(){
   int num_fwd = num_fwd_pressed();
-  if ( num_fwd == 3 ){
-    return max_speed ;
-  }  
-  else if ( num_fwd == 2 ){
-    return medium_speed;
-  }
-  else if ( num_fwd == 1 ){
-    return normal_speed;
-  }
-  else if ( num_fwd == -1 ){
-    return bwd_speed;
+  if ( bwd_btn_1 ){
+    return 0;
   }
   else{
-    return 0;
+    if ( num_fwd == 3 ){
+      return options.fwdSpeed_3 ;
+    }  
+    else if ( num_fwd == 2 ){
+      return options.fwdSpeed_2;
+    }
+    else if ( num_fwd == 1 ){
+      return options.fwdSpeed_1;
+    }
+    else{
+      return 0;
+    }
   }
 }
 
 void Payload::setVelocity(float left, float right){
-      lastCommand.leftVelocity = left;
-      lastCommand.rightVelocity = right;
+  lastCommand.leftVelocity = left;
+  lastCommand.rightVelocity = right;
+  lastCommand.enabled = true;
 }
 void Payload::setBothVelocity(float both){
   setVelocity(both,both);
 }
+
+void Payload::stopAllMotors(){
+    lastCommand.enabled = false;
+    setBothVelocity(0.0);  
+}
+boolean Payload::isContested(){
+  return (num_fwd_pressed() > 0 &&  bwd_btn_1 );
+}
+boolean Payload::isMoving(){
+  return (num_fwd_pressed() > 0 && (! bwd_btn_1));
+}
 int Payload::num_fwd_pressed ( ){
-  return fwd_btn_1 + fwd_btn_2 + fwd_btn_3 - bwd_btn_1;
+  return fwd_btn_1 + fwd_btn_2 + fwd_btn_3;
 }
 
 int Payload::readADCPinPeak(int pin, int samples ){
@@ -151,18 +165,67 @@ int Payload::readADCPinPeak(int pin, int samples ){
   return maxv;
 }
 
-Game::Game(){
+Game::Game(Payload* _payload){
+  payload = _payload;
+  overTime = false;
+  running =false;
 } 
 
+boolean Game::isOverTime(){
+  return overTime;
+}
+
 int Game::getSecondsRemaining(){
-  long endTime = startTime + 1000*durationSeconds;
-  return (int)(endTime - millis() ) / 1000;  
+  if ( running ){
+    long endTime = startTime + 1000*options.gameTimeSeconds;
+    return (int)(endTime - millis() ) / 1000; 
+  }
+  else{
+    return 0;
+  }
 }
+
 boolean Game::isOver(){
-  return (getSecondsRemaining() <= 0);
-  
+  if ( running ){
+    if ( shouldEndGame() ){
+      running = false;
+      overTime = false;
+      return true;
+    }
+  }
+  else{
+    return true;
+  }
 }
-void Game::start(int gameDurationSeconds){
-  durationSeconds = gameDurationSeconds;
+
+boolean Game::shouldEndGame(){
+  if ( getSecondsRemaining() <= 0 ){
+    if ( payload->isMoving() ){   
+      //attackers ONLY possess        
+      lastNonPossessionTime = millis();
+      return false;
+    }
+    else if ( payload->isDefended() ){
+      //defenders ONLY possess, or contest
+      return true;
+    }
+    else{
+      //nobody has possession 
+      int non_posession_time = ( millis() - lastNonPossessionTime);
+      if ( non_posession_time > ENDGAME_OVERTIME_MAX_NON_POSSESSION_MILLIS){
+        return true;
+      }
+      else{
+        return false;
+      }
+    }
+  }
+  else{
+    return false;  
+  }
+}
+
+void Game::start(){
   startTime = millis();
+  running = true;
 }
