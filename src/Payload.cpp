@@ -159,12 +159,14 @@ int Payload::num_fwd_pressed ( ){
 
 int Payload::readADCPinPeak(int pin, int samples ){
   int maxv = 0;
+  long total = 0;
   int v = 0;
   for (int i=0;i<samples;i++){
     v = analogRead(pin);
-    if ( v > maxv ) maxv = v;
+    total += v;
+    //if ( v > maxv ) maxv = v;
   }
-  return maxv;
+  return total/samples;
 }
 
 Game::Game(Payload* _payload){

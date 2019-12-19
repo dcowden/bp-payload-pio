@@ -1,8 +1,9 @@
 High Priority
-* odd delay after game over ?????
+* why does the other side read 500 when saturated?
+* fix sensor wire
 
 Next Features
-* proximity detection for end
+
 * proximity detection for checkpoint-- add time
 * add logging library
 * use interediate checkpoint
@@ -23,3 +24,5 @@ DONE
 * red button should stop progress
 * Misses small curves
 * advancing non-stop should be overtime
+* odd delay after game over ?????
+* proximity detection for end

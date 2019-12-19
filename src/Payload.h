@@ -4,16 +4,15 @@
 #include "pinmap.h"
 
 //app contants
-#define NUM_ADC_SAMPLES 10
+#define NUM_ADC_SAMPLES 20
 #define MAX_SPEED 6000.0
 #define MIN_SPEED -6000.0
-#define MAX_SENSOR 4000
-#define SENSOR_CLOSE 3000
+#define SENSOR_CLOSE 2500
 #define SENSOR_CENTERED 100
 #define SLOW_SPEED 2000.0
 #define ENDGAME_OVERTIME_MAX_NON_POSSESSION_MILLIS 5000 //how long can elapse with attackers not possessing
 
-#define P_GAIN 0.8
+#define P_GAIN 1.0
 #define D_GAIN 0.02
 
 #define DEBUG true
