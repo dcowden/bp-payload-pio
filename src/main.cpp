@@ -221,7 +221,7 @@ void gameOverDisplay(int result){
   else {
     payloadMeter.setColors(CRGB::Green,CRGB::Black);
   }
-
+  payloadMeter.update();
   while ( millis() < end_time ){
     payloadMeter.setToMax();
     FastLED.show();

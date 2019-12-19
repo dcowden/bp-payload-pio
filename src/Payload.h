@@ -6,6 +6,8 @@
 //app contants
 #define NUM_ADC_SAMPLES 20
 #define MAX_SPEED 6000.0
+#define MAX_MENU_SPEED 4000
+#define MIN_FORWARD_SPEED 1000.0
 #define MIN_SPEED -6000.0
 #define SENSOR_CLOSE 2500
 #define SENSOR_CENTERED 100
