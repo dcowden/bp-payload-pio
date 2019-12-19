@@ -30,22 +30,31 @@
 //app constants
 #define NUM_LEDS 60
 #define I2C_ADDRESS 0x3C
-#define GAME_OVER_DANCE_SECS 5
+#define GAME_OVER_DANCE_SECS 10
 #define GAME_OVER_DANCE_DELAY_MS 100
 #define DISPLAY_UPDATE_INTERVAL_MS 200
+#define SERIAL_UPDATE_INTERVAL_MS 1000
 #define MOTOR_UPDATE_INTERVAL_MS 50
 #define DEBUG 1
 #define EEPROMStartAddress 0 // Where to start reading and writing EEPROM
 
 struct gameOptions tmpGameOptions; // Temorary struct for reading EEPROM into
 struct gameOptions gameOptions = {
-    13,   //firmward version   
+    14,   //firmward version   
     600,   //default game length
     1700,  //fwd speed x1
     3000,  //fwd speed x2
     4000,  //fwd speed x3
-    -1500  //bwd speed
+    -1500,  //bwd speed
+    -55     //token rssi threshold
 }; 
+
+enum GameResults
+{
+  CANCELLED,
+  ATTACK_WIN,
+  DEFEND_WIN
+};
 
 //function prototypes
 void readGameSettings();
@@ -79,7 +88,7 @@ void sendMotorCommand(){
 }
 
 Ticker displayTimer(updateDisplay,DISPLAY_UPDATE_INTERVAL_MS,0,MILLIS);
-Ticker serialTimer(updateSerial,DISPLAY_UPDATE_INTERVAL_MS,0,MILLIS);
+Ticker serialTimer(updateSerial,SERIAL_UPDATE_INTERVAL_MS,0,MILLIS);
 Ticker motorCommandTimer(sendMotorCommand,MOTOR_UPDATE_INTERVAL_MS,0,MILLIS);
 
 enum AppModeValues
@@ -114,8 +123,10 @@ void startGame() {
     payload.options = gameOptions;    
     payloadMeter.setMaxValue(gameOptions.gameTimeSeconds);
     payloadMeter.setToMax();
+    payloadMeter.setColors(CRGB::Blue,CRGB::Black);
     oled.clear();    
     payload.enable();
+    scanner.rssiThreshold = gameOptions.rssiThreshold;
     game.start();
     appMode = APP_GAME_RUNNING;
 }
@@ -143,14 +154,17 @@ void setupEEProm(){
 }
 
 void bleScanLoop(void * pvParameters){
+  Serial.println("BLE Scanner Running");
   scanner.init();
   while (true){
      scanner.update();
-     if ( scanner.foundDevice() ){
-       Serial.println("FOUND IT. I FOUND IT!");
-     }
-     else{
-       Serial.println("DINT FIND ANYTHING in BLE");
+     if ( DEBUG ){
+        if ( scanner.foundDevice() ){
+          Serial.println("FOUND IT. I FOUND IT!");
+        }
+        else{
+          Serial.println("DINT FIND ANYTHING in BLE");
+        }
      }
   }
 }
@@ -187,6 +201,7 @@ void setup() {
   setupEEProm();
   startTimers();
   payload.disable();
+  setupBLETask();
 }
 
 void updateLEDs(){
@@ -194,9 +209,19 @@ void updateLEDs(){
   FastLED.show();
 }
 
-void gameOverDisplay(){
+void gameOverDisplay(int result){
   
   long end_time = millis() + (GAME_OVER_DANCE_SECS*1000);
+  if ( result == ATTACK_WIN){
+    payloadMeter.setColors(CRGB::Blue,CRGB::Black);
+  }
+  else if ( result == DEFEND_WIN){
+    payloadMeter.setColors(CRGB::Red,CRGB::Black);
+  }
+  else {
+    payloadMeter.setColors(CRGB::Green,CRGB::Black);
+  }
+
   while ( millis() < end_time ){
     payloadMeter.setToMax();
     FastLED.show();
@@ -266,7 +291,9 @@ void updateSerial(){
    Serial.print(" Mode:");
    Serial.print(payload.manualDrive);
    Serial.print(" enabled:");
-   Serial.println(payload.enabled);
+   Serial.print(payload.enabled);
+   Serial.print(" BLE:");
+   Serial.println(scanner.foundDevice());
    
 }
 
@@ -296,11 +323,12 @@ Menu::result doEndManualControl(){
 }
 
 MENU(settingsSubMenu, "Settings", Menu::doNothing, Menu::noEvent, Menu::wrapStyle
-    ,FIELD(gameOptions.gameTimeSeconds,"Game Time","",0,1000,10,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+    ,FIELD(gameOptions.gameTimeSeconds,"Game Time","",0,1000,30,5, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
     ,FIELD(gameOptions.bwdSpeed_1,"BwdSpeed","",-4000,0,500,100, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
     ,FIELD(gameOptions.fwdSpeed_1,"FwdSpeed1X","",1000,6000,500,100, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
     ,FIELD(gameOptions.fwdSpeed_2,"FwdSpeed2X","",1000,6000,500,100, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
     ,FIELD(gameOptions.fwdSpeed_3,"FwdSpeed3X","",1000,6000,500,100, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
+    ,FIELD(gameOptions.rssiThreshold,"RSSI","",-100,0,5,1, Menu::doNothing, Menu::noEvent, Menu::wrapStyle)
     ,OP("Save Settings",menuUpdateEEPROM, Menu::enterEvent)
     , EXIT("<Back")
 );
@@ -355,16 +383,28 @@ void loop() {
     //check button, so we can cancel
     encButton.tick();    
     displayTimer.update();
-    if ( encButton.isLongPressed() || game.isOver() ){
+    if ( encButton.isLongPressed() || game.isOver() || scanner.foundDevice() ){
       appMode = APP_MENU_MODE;
       payload.disable();
+      int gameResult = 0;
       oled.clear();
-      oled.println("");
       oled.println("-----------------");
       oled.println("-- GAME OVER   --");
-      oled.println("-----------------");
-      oled.println("");
-      gameOverDisplay(); 
+      if ( encButton.isLongPressed() ){
+        oled.println("-- CANCELLED --");
+        gameResult = CANCELLED;
+      }
+      else if ( game.isOver() ){
+        oled.println("- DEFEND WIN   -");
+        gameResult = DEFEND_WIN;
+      }
+      else{
+        oled.println("- ATTACK WIN  -");
+        gameResult = ATTACK_WIN;
+      }
+      oled.print("REM TIME:");
+      oled.println(game.getSecondsRemaining());
+      gameOverDisplay(gameResult); 
       oled.clear();  
       nav.refresh();         
     }

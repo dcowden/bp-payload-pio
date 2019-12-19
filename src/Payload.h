@@ -16,6 +16,8 @@
 #define P_GAIN 0.8
 #define D_GAIN 0.02
 
+#define DEBUG true
+
 struct gameOptions
 {
     //stuff in here gets stored to the EEPROM
@@ -24,7 +26,8 @@ struct gameOptions
     int16_t fwdSpeed_1;      
     int16_t fwdSpeed_2;    
     int16_t fwdSpeed_3; 
-    int16_t bwdSpeed_1;          
+    int16_t bwdSpeed_1; 
+    int16_t rssiThreshold;         
 };
 
 

@@ -2,11 +2,12 @@
 
 BLEProximityScanner::BLEProximityScanner(){
     deviceFound=false; 
+    rssiThreshold = DEFAULT_RSSI_THRESHOLD;
 }
 void BLEProximityScanner::init(){
-    Serial.println("BLE: Begin Init.");
+    //Serial.println("BLE: Begin Init.");
     BLEDevice::init("");
-    Serial.println("BLE: Init Done.");
+    //Serial.println("BLE: Init Done.");
     bleScan= BLEDevice::getScan();
     bleScan->setActiveScan(true); 
     bleScan->setInterval(100);
@@ -14,18 +15,30 @@ void BLEProximityScanner::init(){
 }
 
 void BLEProximityScanner::update(){
-    deviceFound = false;
+    
+    boolean tmpFound = false;
     BLEScanResults foundDevices = bleScan->start(SCAN_TIME_SEC, false);
     for (int i=0;i< foundDevices.getCount();i++){
         BLEAdvertisedDevice advertisedDevice = foundDevices.getDevice(i);
-        if ( advertisedDevice.getRSSI() > RSSI_THRESH ){
-            deviceFound  = true;
-            Serial.printf("BLE::Close Device: %s \n", advertisedDevice.toString().c_str());
-        }
-        else{
-            Serial.printf("BLE::Too Far Device: %s \n", advertisedDevice.toString().c_str());
+        if ( DEBUG ){
+            Serial.print("BLE:");
+            Serial.print(advertisedDevice.getName().c_str());
+            Serial.print(" ");
+            Serial.println(advertisedDevice.getRSSI());
+        }        
+        if ( advertisedDevice.getRSSI() > rssiThreshold ){
+            tmpFound  = true;
+
+            //trigger finding a device as quickly as possible
+            //this will trigger finding a device immediately, but waits a full scan cycle
+            //to show it falling off the radar
+            //Serial.print("BLE: found ");
+            //Serial.println(advertisedDevice.getName().c_str());
+            deviceFound = true;
+            //Serial.printf("BLE::Close Device: %s \n", advertisedDevice.getName().c_str());
         }
     } 
+    deviceFound = tmpFound;
     bleScan->clearResults(); 
 }
 

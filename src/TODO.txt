@@ -4,7 +4,8 @@ High Priority
 Next Features
 * proximity detection for end
 * proximity detection for checkpoint-- add time
-
+* add logging library
+* use interediate checkpoint
 
 Low priority
 * move eeprom code into separate file
@@ -12,7 +13,7 @@ Low priority
 * fix missing small curves
    --- possible algo. if no sensor readings and you had a 4000 in the last xx,
      then you missed the wire, turn towards the sensor
-
+* move game over result code into game
 DONE
 * Higher max speed
 * open up speed options

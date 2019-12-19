@@ -2,6 +2,8 @@
 #include "Payload.h"
 #include "MotorCommands.h"
 
+
+
 Payload::Payload(){
     fwd_btn_1=0;
     fwd_btn_2=0;
@@ -181,6 +183,7 @@ int Game::getSecondsRemaining(){
     return (int)(endTime - millis() ) / 1000; 
   }
   else{
+    if ( DEBUG ){ Serial.println("WARN: getSecondsRemaining when not running"); };
     return 0;
   }
 }
@@ -188,9 +191,13 @@ int Game::getSecondsRemaining(){
 boolean Game::isOver(){
   if ( running ){
     if ( shouldEndGame() ){
+      if ( DEBUG ){ Serial.println("Ending Game"); };
       running = false;
       overTime = false;
       return true;
+    }
+    else{
+      return false;
     }
   }
   else{
