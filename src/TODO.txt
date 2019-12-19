@@ -3,6 +3,7 @@ High Priority
 * weird runaway situation? happens when you just barely catch the corner?
 * better connector on wire loop
 * motor slow start
+* caps at adc
 
 Next Features
 * use interediate checkpoint
@@ -32,3 +33,11 @@ DONE
 * advancing non-stop should be overtime
 * odd delay after game over ?????
 * proximity detection for end
+
+
+BOARD VERSION 2 notes
+* 0.1uf caps for adc pins
+* move i2c ports for usb conflict
+* make footprint right ( or, use different esp model)
+* usb footprings were not right
+* ultrsonic sensor port/pins
