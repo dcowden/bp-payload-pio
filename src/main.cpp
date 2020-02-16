@@ -1,6 +1,6 @@
 #include "Arduino.h"
 #include <FastLED.h>
-#include "LedMeter.h"
+#include "Meter.h"
 #include "SSD1306Ascii.h"
 #include "SSD1306AsciiWire.h"
 #include "MotorCommands.h"
@@ -13,7 +13,7 @@
 #include "Ticker.h"
 #include "pinmap.h"
 #include "BLEScanner.h"
-
+#include "hardware.h"
 //Menu Includes
 #include <menuIO/keyIn.h>
 #include <menu.h>
@@ -26,6 +26,7 @@
 #define fontW 7
 #define fontH 14
 #define MENU_MAX_DEPTH 2
+#define NUM_ADC_SAMPLES 20
 
 //app constants
 #define NUM_LEDS 60
@@ -64,20 +65,29 @@ void updateLEDs();
 void updateSerial();
 void encButton_SingleClick();
 void encButton_DoubleClick();
-
+void readPose();
 
 CRGB leds[NUM_LEDS];
+PayloadPose pose;
+
 SSD1306AsciiWire oled;
 ESP32Encoder encoder;
-LedRange payloadRange [2] = {  { 1, 29 } , { 58,30 }} ; //
-LedMeter payloadMeter = LedMeter(leds,payloadRange,2,CRGB::Blue, CRGB::Black);
+MeterRange payloadRange [2] = {  { 1, 29 } , { 58,30 }} ; //
+Meter payloadMeter = Meter(payloadRange,2,MeterColor::Blue, MeterColor::Black);
 Payload payload;
 Game game(&payload);
-
 OneButton encButton(ROTARY_ENCODER_BUTTON_PIN, true);
 BLEProximityScanner scanner;
-
 TaskHandle_t BLETask;
+
+void readPose(){
+   pose.bluButton =   readPin(BTN_FWD_1);
+   pose.btn2 = readPin(BTN_FWD_2);
+   pose.btn3 = readPin(BTN_FWD_3);
+   pose.redButton = readPin(BTN_BWD);
+   pose.leftWireSensor = sampleADCPin(WIRE_SENSOR_LEFT,NUM_ADC_SAMPLES);
+   pose.rightWireSensor = sampleADCPin(WIRE_SENSOR_RIGHT,NUM_ADC_SAMPLES);
+}
 
 void sendMotorCommand(){
     Wire.beginTransmission (MOTOR_CONTROLLER_ADDRESS );
@@ -123,7 +133,7 @@ void startGame() {
     payload.options = gameOptions;    
     payloadMeter.setMaxValue(gameOptions.gameTimeSeconds);
     payloadMeter.setToMax();
-    payloadMeter.setColors(CRGB::Blue,CRGB::Black);
+    payloadMeter.setColors(MeterColor::Blue,MeterColor::Black);
     oled.clear();    
     payload.enable();
     scanner.rssiThreshold = gameOptions.rssiThreshold;
@@ -204,22 +214,43 @@ void setup() {
   setupBLETask();
 }
 
+CRGB mapColor(MeterColor color){
+   switch(color){
+     case(MeterColor::Black):
+        return CRGB::Black;
+     case(MeterColor::Blue):
+        return CRGB::Blue;
+     case(MeterColor::Red):
+        return CRGB::Red;
+     case(MeterColor::Green):
+        return CRGB::Green;
+     case(MeterColor::Yellow):
+        return CRGB::Yellow;                        
+   }
+   return CRGB::AliceBlue;
+}
+
 void updateLEDs(){
+  for (int i=0;i<payloadMeter.num_leds;i++){
+    leds[i] = mapColor(payloadMeter.leds[i]);
+  }
   payloadMeter.setValue ( game.getSecondsRemaining() );
   FastLED.show();
 }
+
+
 
 void gameOverDisplay(int result){
   
   long end_time = millis() + (GAME_OVER_DANCE_SECS*1000);
   if ( result == ATTACK_WIN){
-    payloadMeter.setColors(CRGB::Blue,CRGB::Black);
+    payloadMeter.setColors(MeterColor::Blue,MeterColor::Black);
   }
   else if ( result == DEFEND_WIN){
-    payloadMeter.setColors(CRGB::Red,CRGB::Black);
+    payloadMeter.setColors(MeterColor::Red,MeterColor::Black);
   }
   else {
-    payloadMeter.setColors(CRGB::Green,CRGB::Black);
+    payloadMeter.setColors(MeterColor::Green,MeterColor::Black);
   }
   payloadMeter.update();
   while ( millis() < end_time ){
@@ -242,18 +273,18 @@ void updateDisplay(){
   oled.clearToEOL();
   oled.print("BTNS:");  
   oled.print(SPACE); 
-  oled.print(payload.fwd_btn_1);
+  oled.print(pose.bluButton);
   oled.print(SPACE); 
-  oled.print(payload.fwd_btn_2); 
+  oled.print(pose.btn2); 
   oled.print(SPACE); 
-  oled.print(payload.fwd_btn_3);
+  oled.print(pose.btn3);
   oled.print(SPACE); 
-  oled.println(payload.bwd_btn_1); 
+  oled.println(pose.redButton); 
   oled.clearToEOL();
   oled.print("SEN: ");
-  oled.print(payload.left_sensor);
+  oled.print(pose.leftWireSensor);
   oled.print(" ");   
-  oled.println(payload.right_sensor);
+  oled.println(pose.rightWireSensor);
   oled.clearToEOL();
   oled.print("MTR: ");  
   oled.print((int)payload.lastCommand.leftVelocity);

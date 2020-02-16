@@ -1,27 +1,18 @@
-#include <Arduino.h>
+//#include <Arduino.h>
 #include "Payload.h"
 #include "MotorCommands.h"
 
-
-
-Payload::Payload(){
-    fwd_btn_1=0;
-    fwd_btn_2=0;
-    fwd_btn_3=0;
-    bwd_btn_1=0;
-    left_sensor=0;
-    right_sensor = 0;  
+Payload::Payload(Clock* _clock){
     lastError=0.0;
     manualDrive=false;
     enabled=false;
     MotorCommand mc { 0.0, 0.0, false};
     lastCommand = mc;
-
-
+    gameClock = _clock;
 }
 
 int Payload::getNumberForwardButtonsPressed(){
-  return num_fwd_pressed ();
+  return numFwdPressed ();
 }
 void Payload::enable(){
   enabled = true;
@@ -33,23 +24,15 @@ void Payload::disable(){
   setBothVelocity(0.0);
   lastCommand.enabled = false;     
 }
-boolean Payload::isDefended(){
-  return bwd_btn_1;
+bool Payload::isDefended(){
+  return pose.redButton;
 }
 
-void Payload::update(){
-
+void Payload::update(PayloadPose newPose){
+  pose = newPose;
   if ( !enabled ){
     return;
   }
-
-  fwd_btn_1 = readButton(BTN_FWD_1);
-  fwd_btn_2 = readButton(BTN_FWD_2);
-  fwd_btn_3 = readButton(BTN_FWD_3);
-  bwd_btn_1 = readButton(BTN_BWD);
-  left_sensor = readADCPinPeak(WIRE_SENSOR_LEFT,NUM_ADC_SAMPLES);
-  right_sensor= readADCPinPeak(WIRE_SENSOR_RIGHT,NUM_ADC_SAMPLES);
-
 
   if ( manualDrive){
     computeManualDrive();
@@ -61,13 +44,13 @@ void Payload::update(){
 }
 
 void Payload::computeManualDrive(){
-  if ( fwd_btn_1 ){
+  if ( pose.bluButton ){
     setVelocity(options.fwdSpeed_1,0.0);
   }
-  else if ( fwd_btn_2){
+  else if ( pose.btn2){
     setVelocity(0.0,options.fwdSpeed_1);
   }
-  else if ( fwd_btn_3 ){
+  else if ( pose.btn3 ){
     setBothVelocity(options.fwdSpeed_1);
   }
   else{
@@ -77,11 +60,11 @@ void Payload::computeManualDrive(){
 
 void Payload::computeInGameDrive(){
   int nominalSpeed = computeNominalSpeed();
-  boolean shouldDrive = ( nominalSpeed != 0 );
-  boolean goingForward = ( nominalSpeed > 0 );
+  bool shouldDrive = ( nominalSpeed != 0 );
+  bool goingForward = ( nominalSpeed > 0 );
 
   if ( shouldDrive ){
-    int error = left_sensor - right_sensor;
+    int error = pose.leftWireSensor - pose.rightWireSensor;
     
     int d_err = error - lastError;
 
@@ -89,11 +72,11 @@ void Payload::computeInGameDrive(){
     lastError = error;
 
     if (goingForward ){
-      if ( left_sensor > SENSOR_CLOSE || right_sensor > SENSOR_CLOSE ){
+      if ( pose.leftWireSensor > SENSOR_CLOSE || pose.rightWireSensor > SENSOR_CLOSE ){
         nominalSpeed = SLOW_SPEED;
       }
-      setVelocity(  constrain(nominalSpeed - correction,MIN_SPEED,MAX_SPEED),
-                    constrain(nominalSpeed + correction,MIN_SPEED,MAX_SPEED)
+      setVelocity(  constrain_value(nominalSpeed - correction,MIN_SPEED,MAX_SPEED),
+                    constrain_value(nominalSpeed + correction,MIN_SPEED,MAX_SPEED)
       );
     }
     else{   
@@ -108,14 +91,9 @@ void Payload::computeInGameDrive(){
 
 }
 
-int Payload::readButton(int buttonPin){
-  int i = digitalRead(buttonPin);
-  return i == 0;
-}
-
 int Payload::computeNominalSpeed(){
-  int num_fwd = num_fwd_pressed();
-  if ( bwd_btn_1 ){
+  int num_fwd = numFwdPressed();
+  if ( pose.redButton ){
     return 0;
   }
   else{
@@ -147,26 +125,22 @@ void Payload::stopAllMotors(){
     lastCommand.enabled = false;
     setBothVelocity(0.0);  
 }
-boolean Payload::isContested(){
-  return (num_fwd_pressed() > 0 &&  bwd_btn_1 );
+bool Payload::isContested(){
+  return (fwdPressed() &&  pose.bluButton );
 }
-boolean Payload::isMoving(){
-  return (num_fwd_pressed() > 0 && (! bwd_btn_1));
+bool Payload::isMoving(){
+  return (fwdPressed()  && (! pose.bluButton));
 }
-int Payload::num_fwd_pressed ( ){
-  return fwd_btn_1 + fwd_btn_2 + fwd_btn_3;
+bool Payload::fwdPressed ( ){  
+  numFwdPressed() > 0;
 }
 
-int Payload::readADCPinPeak(int pin, int samples ){
-  int maxv = 0;
-  long total = 0;
-  int v = 0;
-  for (int i=0;i<samples;i++){
-    v = analogRead(pin);
-    total += v;
-    //if ( v > maxv ) maxv = v;
-  }
-  return total/samples;
+int Payload::numFwdPressed(){
+  int total = 0;
+  if ( pose.bluButton) total += 1;
+  if ( pose.btn2 ) total += 1;
+  if ( pose.btn3) total += 1;
+  return total;
 }
 
 Game::Game(Payload* _payload){
@@ -175,14 +149,14 @@ Game::Game(Payload* _payload){
   running =false;
 } 
 
-boolean Game::isOverTime(){
+bool Game::isOverTime(){
   return overTime;
 }
 
 int Game::getSecondsRemaining(){
   if ( running ){
     long endTime = startTime + 1000*options.gameTimeSeconds;
-    return (int)(endTime - millis() ) / 1000; 
+    return (int)(endTime - gameClock->milliseconds() ) / 1000; 
   }
   else{
     if ( DEBUG ){ Serial.println("WARN: getSecondsRemaining when not running"); };
@@ -190,7 +164,7 @@ int Game::getSecondsRemaining(){
   }
 }
 
-boolean Game::isOver(){
+bool Game::isOver(){
   if ( running ){
     if ( shouldEndGame() ){
       if ( DEBUG ){ Serial.println("Ending Game"); };
@@ -207,7 +181,7 @@ boolean Game::isOver(){
   }
 }
 
-boolean Game::shouldEndGame(){
+bool Game::shouldEndGame(){
   if ( getSecondsRemaining() <= 0 ){
     if ( payload->isMoving() ){   
       //attackers ONLY possess        

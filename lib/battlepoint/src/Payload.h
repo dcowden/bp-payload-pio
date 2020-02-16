@@ -1,10 +1,12 @@
-#ifndef POSE_H
-#define POSE_H
+#ifndef PAYLOAD_H
+#define PAYLOAD_H
 #include "MotorCommands.h"
-#include "pinmap.h"
+#include "util.h"
+#include "Clock.h"
+//#include "pinmap.h"
 
 //app contants
-#define NUM_ADC_SAMPLES 20
+
 #define MAX_SPEED 6000.0
 #define MAX_MENU_SPEED 4000
 #define MIN_FORWARD_SPEED 1000.0
@@ -19,46 +21,53 @@
 
 #define DEBUG true
 
-struct gameOptions
+typedef struct GameOptions
 {
     //stuff in here gets stored to the EEPROM
     int firmwareVersion;  // Firmware version to check if we need to overwrite
-    int16_t gameTimeSeconds;        
-    int16_t fwdSpeed_1;      
-    int16_t fwdSpeed_2;    
-    int16_t fwdSpeed_3; 
-    int16_t bwdSpeed_1; 
-    int16_t rssiThreshold;         
+    long gameTimeSeconds;        
+    long fwdSpeed_1;      
+    long fwdSpeed_2;    
+    long fwdSpeed_3; 
+    long bwdSpeed_1; 
+    long rssiThreshold;         
 };
+
+typedef struct {
+    int leftWireSensor =0;
+    int rightWireSensor =0;
+    bool bluButton=0;
+    bool redButton=0;
+    bool btn2=0;
+    bool btn3=0;
+    int nearAddress=0;
+} PayloadPose;
 
 
 class Payload{
   public:
-    Payload();
-    void update();  
-    struct gameOptions options;  
-    int fwd_btn_1;
-    int fwd_btn_2;
-    int fwd_btn_3;
-    int bwd_btn_1;
-    int left_sensor;
-    int right_sensor;
+    Payload(Clock* clock);
+    void update(PayloadPose newPose);  
+    GameOptions options;
+    PayloadPose pose;
+    Clock* gameClock;
     float lastError;
     int getNumberForwardButtonsPressed();
-    boolean isMoving();
-    boolean isContested();
-    boolean isDefended();
+    bool isMoving();
+    bool isContested();
+    bool isDefended();
     void enable();
     void disable();
     MotorCommand lastCommand; 
-    boolean manualDrive;   
-    boolean enabled;
+    bool manualDrive;   
+    bool enabled;
 
   private:
     int readButton(int pin);
     int computeNominalSpeed();
     int readADCPinPeak(int pin,int num_samples);
-    int num_fwd_pressed();
+    bool fwdPressed();
+    int numFwdPressed();
     void setVelocity(float left, float right);
     void setBothVelocity(float both);
     void computeManualDrive();
@@ -72,17 +81,17 @@ class Game{
     Game(Payload* _payload);
     int getSecondsRemaining();
     int durationSeconds;
-    boolean isOver();
-    boolean isOverTime();
+    bool isOver();
+    bool isOverTime();
     void start();
-    struct gameOptions options;
+    GameOptions options;
   private:
     long startTime;    
     Payload* payload;
     long lastNonPossessionTime;
-    boolean overTime;
-    boolean running;
-    boolean shouldEndGame();
+    bool overTime;
+    bool running;
+    bool shouldEndGame();
 };
 
 #endif

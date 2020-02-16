@@ -1,11 +1,7 @@
-#include "LedMeter.h"
+#include "Meter.h"
+#include "util.h"
 
 #define DEFAULT_MAX 100
-
-Meter::Meter(){
-  value=0;
-  maxValue = DEFAULT_MAX;
-};
 
 void Meter::setValue(int new_value){
   value = new_value;
@@ -28,36 +24,47 @@ int Meter::getMaxValue(){
   return maxValue;
 };
 
-LedMeter::LedMeter(CRGB* new_leds, LedRange* new_ranges, 
-        uint8_t new_ranges_cnt, CRGB new_fgcolor, CRGB new_bgcolor ){
-  leds = new_leds;
+Meter::Meter( MeterRange* new_ranges, 
+        int new_ranges_cnt, MeterColor new_fgcolor, MeterColor new_bgcolor ){
+  value=0;
+  maxValue = DEFAULT_MAX;          
   ranges_cnt = new_ranges_cnt;
   ranges = new_ranges;
   fgColor = new_fgcolor;
   bgColor = new_bgcolor; 
+
+  int max_index = 0;
+  struct MeterRange* ptr = ranges;
+  for ( int i=0;i<ranges_cnt;i++,ptr++){
+    if ( ptr->endIndex > max_index ) max_index = ptr->endIndex;
+    if ( ptr->startIndex > max_index ) max_index = ptr->startIndex;
+  }
+  num_leds = max_index + 1;
+  leds = new MeterColor[num_leds];
+
 };
 
-void LedMeter::setColors(CRGB fg, CRGB bg){
+void Meter::setColors(MeterColor fg, MeterColor bg){
   setFgColor(fg);
   setBgColor(bg);
 };
 
-void LedMeter::setFgColor(CRGB new_color){
+void Meter::setFgColor(MeterColor new_color){
   fgColor = new_color;
 };
-void LedMeter::setBgColor(CRGB new_color){
+void Meter::setBgColor(MeterColor new_color){
   bgColor = new_color;
 };
 
 
-void LedMeter::update(){
-  struct LedRange* ptr = ranges;
+void Meter::update(){
+  struct MeterRange* ptr = ranges;
   for ( int i=0;i<ranges_cnt;i++,ptr++){
     updateRange(ptr);
   }
 };
 
-void LedMeter::updateRange(LedRange* range){
+void Meter::updateRange(MeterRange* range){
 
   int startIndex = range->startIndex;
   int endIndex = range->endIndex;
